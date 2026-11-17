@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Chuỗi dùng bởi package com.gia.aicomposer.integration + pipeline + overlay.
+  Chép nguyên file này vào app/src/main/res/values/ của app thật.
+  Nếu app đã có string cùng tên thì xoá dòng đó ở đây (không để trùng tên giữa 2 file).
+-->
+<resources>
+    <string name="pose_hint_idle">Bấm “Gợi ý dáng” để nhận dáng chụp</string>
+    <string name="pose_hint_none_available">Chưa nhận diện được cảnh — dùng dáng mặc định</string>
+    <string name="guidance_pose_disabled">Đang tắt gợi ý dáng (bật trong Cài đặt)</string>
+
+    <string name="pipeline_waiting">Sẵn sàng — bấm “Tự chụp” để bắt đầu</string>
+    <string name="pipeline_opening">Đang mở camera…</string>
+    <string name="pipeline_waiting_stable">Giữ máy yên để tìm khung hình</string>
+    <string name="pipeline_finding_region">Đang tìm vùng đẹp — bước vào khung</string>
+    <string name="pipeline_locking_sample">Đã chọn khung — đang khóa mẫu</string>
+    <string name="pipeline_ready">Căn tâm khung vào vòng tròn</string>
+    <string name="pipeline_holding">Giữ nguyên… đang khóa khung</string>
+    <string name="pipeline_counting">Sắp chụp — giữ yên %.1f giây</string>
+    <string name="pipeline_capturing">Đang chụp…</string>
+    <string name="pipeline_saving">Đang lưu ảnh…</string>
+    <string name="pipeline_done">Xong! Ảnh đã được lưu</string>
+    <string name="pipeline_error">Lỗi: %s</string>
+    <string name="pipeline_error_state">Có lỗi xảy ra</string>
+
+    <string name="settings_title">Cài đặt</string>
+    <string name="settings_pose_suggestions">Bật gợi ý dáng</string>
+    <string name="settings_auto_capture">Bật tự chụp khi căn chuẩn</string>
+    <string name="settings_capture_delay">Độ trễ chụp</string>
+    <string name="settings_delay_value">%1$.2f giây</string>
+    <string name="settings_close">Đóng</string>
+
+    <string name="suggest_result">%1$s • điểm %2$.1f</string>
+    <string name="capture_saved">Đã lưu: %1$s</string>
+</resources>
