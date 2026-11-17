@@ -1,11 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AICameraComposer</string>
-
-    <string name="btn_suggest_pose">Gợi ý dáng</string>
-    <string name="btn_capture">Chụp</string>
-    <string name="btn_settings">Cài đặt</string>
-    <string name="switch_auto_capture">Tự chụp</string>
-
-    <string name="guidance_permission_denied">Cần quyền camera để tiếp tục</string>
+    <string name="app_name">AI Composition Camera</string>
 </resources>

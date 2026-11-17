@@ -1,118 +1,86 @@
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black">
+    android:background="@android:color/black">
 
-    <!-- Overlay (hình que + khung 3:4 + vòng tâm) do AiCameraAssistant thêm vào FrameLayout này. -->
-    <FrameLayout
-        android:id="@+id/previewContainer"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+    <androidx.camera.view.PreviewView
+        android:id="@+id/preview_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:scaleType="fitCenter" />
 
-        <androidx.camera.view.PreviewView
-            android:id="@+id/previewView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:scaleType="fitCenter" />
-    </FrameLayout>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/guidanceCard"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="12dp"
-        app:cardBackgroundColor="@color/panel"
-        app:cardCornerRadius="14dp"
-        app:cardElevation="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
-
-            <TextView
-                android:id="@+id/tvGuidance"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/pipeline_waiting"
-                android:textColor="@color/white"
-                android:textSize="15sp" />
-
-            <TextView
-                android:id="@+id/tvPoseName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/pose_hint_idle"
-                android:textColor="#CCFFFFFF"
-                android:textSize="12sp" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+    <com.gia.aicomposer.CompositionOverlayView
+        android:id="@+id/overlay_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <LinearLayout
-        android:id="@+id/controls"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/panel"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:padding="12dp">
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/switchAutoCapture"
+        <Button
+            android:id="@+id/aspect_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingBottom="4dp"
-            android:text="@string/switch_auto_capture"
-            android:textColor="@color/white" />
+            android:minWidth="88dp"
+            android:text="Ti le 4:3" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <Button
+            android:id="@+id/auto_button"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSuggestPose"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:text="@string/btn_suggest_pose"
-                android:textSize="13sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCapture"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:text="@string/btn_capture"
-                android:textSize="13sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSettings"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_settings"
-                android:textSize="13sp" />
-        </LinearLayout>
+            android:layout_marginStart="8dp"
+            android:minWidth="120dp"
+            android:text="Tu dong: BAT" />
     </LinearLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <TextView
+        android:id="@+id/status_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="72dp"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:shadowColor="@android:color/black"
+        android:shadowDx="1"
+        android:shadowDy="1"
+        android:shadowRadius="3"
+        android:text="Dang mo camera..."
+        android:textColor="@android:color/white"
+        android:textSize="15sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/gallery_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="110dp"
+            android:text="Thu vien" />
+
+        <Button
+            android:id="@+id/shutter_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:backgroundTint="#D32F2F"
+            android:minWidth="130dp"
+            android:text="CHUP"
+            android:textColor="@android:color/white"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+</FrameLayout>

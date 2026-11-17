@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.gia.aicomposer"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 1
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -70,6 +70,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
 
@@ -78,6 +79,8 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Object detection (EfficientDet Lite0) + pose landmarks, bundled models in assets.
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
