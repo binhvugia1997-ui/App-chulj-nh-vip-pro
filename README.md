@@ -50,18 +50,24 @@ khac thi sua lai `sdk.dir` hoac dat bien `ANDROID_HOME`.
 gradlew.bat assembleDebug
 ```
 
-APK debug o `app\build\outputs\apk\debug\app-debug.apk`.
+APK debug chia theo ABI (`splits`, khong co ban universal) trong
+`app\build\outputs\apk\debug\`:
 
-`abiFilters` giu `arm64-v8a` + `x86_64`: APK debug ~110.943.003 byte (105,8 MiB) khi dong ca 4 ABI
-xuong con 66.033.933 byte (-40,5%) voi `tasks-vision:0.10.14`. Sau khi nang len `tasks-vision:1.2.3`
-(dependency `tasks-core:1.2.3` co native x86_64 de chay tren emulator) APK debug la 87.167.096 byte;
-phan tang nam o `lib/x86_64` (+20,2 MB), `lib/arm64-v8a` chi +2,9 MB. Hai model trong `assets/` van
-duoc dong o dang khong nen (stored).
+| APK | Dung luong | Dung cho |
+|---|---|---|
+| `app-arm64-v8a-debug.apk` | 57.513.275 byte (54,9 MiB) | may that |
+| `app-x86_64-debug.apk` | 62.820.210 byte (59,9 MiB) | emulator |
+
+Truoc khi bat splits, mot APK gop 2 ABI voi `tasks-vision:1.2.3` la 87.167.096 byte; ban arm64 nhe di
+29.653.821 byte (-28,3 MiB, -34,0%). Khong loc ABI nao thi APK la 110.943.003 byte (dong ca x86 +
+armeabi-v7a). Toan bo +20,2 MB native cua `tasks-core:1.2.3` nam o `lib/x86_64` nen gio chi con trong
+APK emulator; `lib/arm64-v8a` la 23,2 MiB. Hai model trong `assets/` van duoc dong o dang khong nen
+(stored) trong ca 2 APK.
 
 Cai len dien thoai:
 
 ```bat
-adb install -r app\build\outputs\apk\debug\app-debug.apk
+adb install -r app\build\outputs\apk\debug\app-arm64-v8a-debug.apk
 ```
 
 ## Ghi chu

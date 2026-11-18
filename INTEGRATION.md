@@ -583,7 +583,7 @@ adb shell content query --uri content://media/external/images/media --projection
 
 ```bat
 gradlew.bat :app:assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
+adb install -r app\build\outputs\apk\debug\app-arm64-v8a-debug.apk
 ```
 
 Kỳ vọng: `BUILD SUCCESSFUL`; APK còn đúng 2 ABI; mở app không crash; chấm vàng/trắng và tự chụp
@@ -593,70 +593,66 @@ Checklist test chi tiết (emulator E1–E12, máy thật D1–D11, thư viện 
 
 ---
 
-## 8. Kích thước APK — số đo thực tế sau khi lọc ABI
+## 8. Kích thước APK — số đo thực tế sau khi bật ABI splits
 
-Build lại trong workspace này (JDK 17 + Android SDK 34, `./gradlew :app:assembleDebug`), cùng một
-commit, chỉ khác `abiFilters`:
+`app/build.gradle.kts` dùng `splits { abi { isEnable = true; reset(); include("arm64-v8a", "x86_64");
+isUniversalApk = false } }` thay cho `ndk.abiFilters`. `./gradlew :app:assembleDebug` sinh đúng 2 APK,
+không có bản universal (nên không còn `app-debug.apk`):
 
-| | Không lọc ABI | Có `arm64-v8a` + `x86_64` |
-|---|---|---|
-| **APK** | **110.943.003 byte (105,8 MiB)** | **66.033.933 byte (63,0 MiB)** |
-| native `.so` | 73,5 MiB | 30,7 MiB |
-| assets | 22,8 MiB | 22,8 MiB |
-| dex | 20,7 MiB | 20,7 MiB |
-| res + `resources.arsc` | 1,7 MiB | 1,7 MiB |
+| APK | Dung lượng | native `.so` | Dùng cho |
+|---|---|---|---|
+| `app-arm64-v8a-debug.apk` | **57.513.275 byte (54,9 MiB)** | 23,2 MiB | máy thật |
+| `app-x86_64-debug.apk` | **62.820.210 byte (59,9 MiB)** | 28,3 MiB | emulator |
 
-**Giảm 44.909.070 byte = 42,8 MiB = −40,5%.** Log build: `BUILD SUCCESSFUL` (cả 2 lần), `aapt dump
-badging` báo `native-code: 'arm64-v8a' 'x86_64'`.
+`aapt dump badging` xác nhận mỗi file chỉ khai một ABI: `native-code: 'arm64-v8a'` và
+`native-code: 'x86_64'`.
+
+So với một APK gộp cả 2 ABI trước khi split (`tasks-vision:1.2.3`, 87.167.096 byte): bản arm64 giảm
+**29.653.821 byte (−28,3 MiB, −34,0%)**, bản x86_64 giảm 24.346.886 byte (−23,2 MiB, −27,9%). Toàn bộ
++20,2 MB native mà `tasks-core:1.2.3` thêm vào `lib/x86_64` giờ chỉ nằm trong APK emulator.
 
 ### 8.1 Phần nào phình to
 
-| Hạng mục | Trước | Sau |
+| Hạng mục | APK arm64 | APK x86_64 |
 |---|---|---|
-| `lib/x86/` (bỏ) | 29,7 MiB | 0 |
-| `lib/arm64-v8a/` | 21,4 MiB | 21,4 MiB |
-| `lib/armeabi-v7a/` (bỏ) | 13,1 MiB | 0 |
-| `lib/x86_64/` | 9,4 MiB | 9,4 MiB |
+| `lib/arm64-v8a/` | 24.336.024 byte (23,2 MiB, 3 lib) | — |
+| `lib/x86_64/` | — | 29.644.888 byte (28,3 MiB, 3 lib) |
 | `assets/` | 22,8 MiB | 22,8 MiB |
 | `classes*.dex` (12 file) | 20,7 MiB | 20,7 MiB |
+| res + `resources.arsc` | 1,7 MiB | 1,7 MiB |
 
-File đơn lẻ lớn nhất:
+File đơn lẻ lớn nhất trong APK arm64:
 
 ```
-20,4 MiB  lib/x86/libmediapipe_tasks_vision_jni.so          ← bị loại
-13,4 MiB  lib/arm64-v8a/libmediapipe_tasks_vision_jni.so
-13,2 MiB  assets/efficientdet_lite0.tflite                  ← model, giữ
- 9,7 MiB  classes.dex
- 9,3 MiB  lib/x86_64/libface_detector_v2_jni.so
- 8,1 MiB  lib/armeabi-v7a/libmediapipe_tasks_vision_jni.so   ← bị loại
- 5,5 MiB  assets/pose_landmarker_lite.task                   ← model, giữ
+15.971.160 byte  lib/arm64-v8a/libmediapipe_tasks_jni.so
+13.836.895 byte  assets/efficientdet_lite0.tflite            ← model, giữ
+ 8.335.920 byte  lib/arm64-v8a/libface_detector_v2_jni.so
+ 5.777.746 byte  assets/pose_landmarker_lite.task             ← model, giữ
 ```
 
-Kết luận: **không phải model làm APK phình** — 19,6 MiB model là bắt buộc. Thủ phạm là **native
-`.so` của MediaPipe + ML Kit nhân 4 ABI** (73,5 MiB, 69,5% APK) và **dex 20,7 MiB / 12 file** (do
-minify tắt ở bản debug). Lọc ABI cắt đúng phần dư (x86 + armeabi-v7a).
+Kết luận: **không phải model làm APK phình** — 19,6 MiB model là bắt buộc và có trong cả 2 APK. Phần
+dư là **native `.so` của MediaPipe + ML Kit nhân nhiều ABI** (73,5 MiB khi đóng cả 4 ABI) và **dex
+20,7 MiB / 12 file** (do minify tắt ở bản debug). Splits cắt phần native của ABI còn lại.
 
-### 8.2 APK sau khi lọc vẫn đủ model
+### 8.2 Cả 2 APK vẫn đủ model
 
-Kiểm tra trực tiếp trong `app-debug.apk`:
+Kiểm tra trực tiếp trong từng APK (`unzip -lv`, cả hai giống nhau):
 
 ```
 assets/efficientdet_lite0.tflite   13.836.895 byte   compress=0 (stored)
 assets/pose_landmarker_lite.task    5.777.746 byte   compress=0 (stored)
 ```
 
-So SHA-256 giữa APK trước/sau: **giống hệt** (2 model không bị nén lại, không bị strip):
-`efficientdet_lite0.tflite` = `40338edf…`, `pose_landmarker_lite.task` = `59929e1d…`.
-Class cần thiết có trong dex: `GalleryActivity`, `util/PhotoStore`, `integration/AiCameraAssistant`,
-`SubjectTracker`.
+Hai model không bị nén lại hay strip; SHA-256 khớp bản trước splits (`efficientdet_lite0.tflite` =
+`40338edf…`, `pose_landmarker_lite.task` = `59929e1d…`). Class cần thiết vẫn có trong dex:
+`GalleryActivity`, `util/PhotoStore`, `integration/AiCameraAssistant`, `SubjectTracker`.
 
 ### 8.3 Nếu cần nhỏ hơn nữa (chưa áp dụng)
 
-- `splits { abi { isEnable = true; include("arm64-v8a","x86_64"); isUniversalApk = false } }` → mỗi máy
-  chỉ tải 1 ABI (bản arm64 ≈ 43 MiB), nhưng phải cài đúng file.
 - Bật R8 cho bản release (`isMinifyEnabled = true`) → dex giảm mạnh; bản debug hiện tắt nên vẫn ~20,7 MiB.
 - `assets/models_bundled/*` (~4,6 MiB) là model nhúng sẵn của `mlkit:face-detection`; chỉ bỏ được nếu
   thay bằng bộ phát hiện mặt khác.
+- Bỏ hẳn ABI `x86_64` khỏi `splits.abi.include` khi không cần emulator nữa → CI chỉ build 1 APK.
 
 ---
 

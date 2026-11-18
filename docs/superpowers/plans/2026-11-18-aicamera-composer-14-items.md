@@ -307,7 +307,7 @@ git commit -m "feat: require converged focus and exposure before auto capture"
 - Consumes: cấu hình `abiFilters = ["arm64-v8a", "x86_64"]` hiện tại; `androidResources.noCompress` giữ nguyên.
 - Produces: 2 APK theo ABI, không có APK universal.
 
-- [ ] **Step 1: Đổi cấu hình**
+- [x] **Step 1: Đổi cấu hình** (xong 2026-11-18)
 
 Trong `app/build.gradle.kts`: xoá `ndk { abiFilters += ... }`, thêm trong `android { }`:
 ```kotlin
@@ -321,20 +321,27 @@ splits {
 }
 ```
 
-- [ ] **Step 2: Build và liệt kê APK**
+- [x] **Step 2: Build và liệt kê APK** (xong 2026-11-18)
 
 Run: `./gradlew :app:assembleDebug --no-daemon && ls -l app/build/outputs/apk/debug/`
 Expected: `app-arm64-v8a-debug.apk` và `app-x86_64-debug.apk`, không có `app-universal-debug.apk`.
+Kết quả: `BUILD SUCCESSFUL`, đúng 2 file, không có `app-universal-debug.apk`.
 
-- [ ] **Step 3: Ghi số đo**
+- [x] **Step 3: Ghi số đo** (xong 2026-11-18)
 
 Run: `for f in app/build/outputs/apk/debug/*.apk; do printf "%s %s\n" "$(stat -c%s "$f")" "$f"; done`
 Expected: APK arm64 nhỏ hơn 66.033.933 byte đáng kể (bỏ phần x86_64); ghi cả hai số vào `README.md` và `INTEGRATION.md` mục 8.
+Kết quả: `app-arm64-v8a-debug.apk` = **57.513.275 byte** (54,9 MiB, `lib/arm64-v8a` 23,2 MiB);
+`app-x86_64-debug.apk` = **62.820.210 byte** (59,9 MiB, `lib/x86_64` 28,3 MiB). So với APK gộp 2 ABI
+trước splits (87.167.096 byte): arm64 −29.653.821 byte (−34,0%). Số đo đã ghi vào `README.md`
+(mục Build) và `INTEGRATION.md` mục 8; `aapt dump badging` báo mỗi APK đúng 1 ABI.
 
-- [ ] **Step 4: Xác nhận model vẫn stored**
+- [x] **Step 4: Xác nhận model vẫn stored** (xong 2026-11-18)
 
 Run: `unzip -lv app/build/outputs/apk/debug/app-arm64-v8a-debug.apk | grep -E 'assets/.*\.(tflite|task)'`
 Expected: cột method = `Stored` cho cả 2 model.
+Kết quả: cả 2 APK đều có `efficientdet_lite0.tflite` (13.836.895 byte) và `pose_landmarker_lite.task`
+(5.777.746 byte) ở `Stored`.
 
 - [ ] **Step 5: Commit**
 

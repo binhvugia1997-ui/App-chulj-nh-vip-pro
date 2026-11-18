@@ -16,10 +16,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // MediaPipe/ML Kit ship .so for 4 ABIs (~76 MB thô). Giữ arm64-v8a cho máy thật
-        // và x86_64 cho emulator; bỏ x86 + armeabi-v7a để APK gọn hơn ~45 MB.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+    }
+
+    // MediaPipe/ML Kit ship .so cho 4 ABI. Chia APK theo ABI để máy thật (arm64-v8a)
+    // không phải mang theo native x86_64 của tasks-core (tasks-vision 1.2.3).
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 

@@ -98,7 +98,7 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
 - `app/src/main/assets/` — 2 model; `res/values/ai_strings.xml`, `ai_colors.xml`.
 - `app/src/main/java/com/gia/aicomposer/util/PhotoStore.kt` — đường lưu ảnh dùng chung cho chụp tay + pipeline.
 - `app/src/main/java/com/gia/aicomposer/GalleryActivity.kt` — thư viện đọc MediaStore + thư mục app.
-- `INTEGRATION.md` — hướng dẫn ghép; `app/build/outputs/apk/debug/app-debug.apk` — APK demo.
+- `INTEGRATION.md` — hướng dẫn ghép; `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk` / `app-x86_64-debug.apk` — APK demo (ABI splits).
 
 ## Bước tiếp theo
 1. Làm theo `INTEGRATION.md` mục 1 → 5 trên máy Windows.
