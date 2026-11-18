@@ -16,6 +16,17 @@
             android:layout_margin="12dp"
             android:text="&lt; Quay lai" />
 
+        <TextView
+            android:id="@+id/empty_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="24dp"
+            android:text="@string/gallery_empty"
+            android:textColor="@android:color/white"
+            android:textSize="15sp"
+            android:visibility="gone" />
+
         <GridView
             android:id="@+id/photo_grid"
             android:layout_width="match_parent"
