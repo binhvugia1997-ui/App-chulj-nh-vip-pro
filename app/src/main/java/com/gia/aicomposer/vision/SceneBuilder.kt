@@ -61,9 +61,8 @@ internal object SceneBuilder {
 
         return SceneState(
             objects = objects,
-            freeRegions = FreeRegionFinder.find(objects),
+            freeRegion = FreeRegionFinder.find(objects),
             nearClutterRatio = nearClutter,
-            timestampMs = System.currentTimeMillis(),
         )
     }
 }

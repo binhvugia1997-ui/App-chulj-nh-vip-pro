@@ -33,8 +33,6 @@ class SceneAnalyzer(
     @Volatile
     private var closed = false
 
-    val isReady: Boolean get() = detector != null
-
     fun initialize(): Boolean {
         if (detector != null) return true
         return try {

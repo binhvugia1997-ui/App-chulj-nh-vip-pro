@@ -16,24 +16,22 @@ import com.gia.aicomposer.vision.FramingResult
  * sẵn sàng chụp -> đang chụp -> đang lưu -> xong/lỗi.
  * Mỗi bước hiện một câu hướng dẫn ngắn (guidanceRes).
  */
-enum class PipelineState(@StringRes val guidanceRes: Int, val step: Int) {
-    WAITING(R.string.pipeline_waiting, 1),
-    OPENING_CAMERA(R.string.pipeline_opening, 2),
-    WAITING_STABLE(R.string.pipeline_waiting_stable, 3),
-    FINDING_REGION(R.string.pipeline_finding_region, 4),
-    LOCKING_SAMPLE(R.string.pipeline_locking_sample, 5),
-    READY(R.string.pipeline_ready, 6),
-    CAPTURING(R.string.pipeline_capturing, 7),
-    SAVING(R.string.pipeline_saving, 8),
-    DONE(R.string.pipeline_done, 9),
-    ERROR(R.string.pipeline_error_state, 9),
+enum class PipelineState(@StringRes val guidanceRes: Int) {
+    WAITING(R.string.pipeline_waiting),
+    OPENING_CAMERA(R.string.pipeline_opening),
+    WAITING_STABLE(R.string.pipeline_waiting_stable),
+    FINDING_REGION(R.string.pipeline_finding_region),
+    LOCKING_SAMPLE(R.string.pipeline_locking_sample),
+    READY(R.string.pipeline_ready),
+    CAPTURING(R.string.pipeline_capturing),
+    SAVING(R.string.pipeline_saving),
+    DONE(R.string.pipeline_done),
+    ERROR(R.string.pipeline_error_state),
 }
 
 data class PipelineUi(
     val state: PipelineState,
     val frameCenter: PointF = PointF(0.5f, 0.5f),
-    val frameHeightFraction: Float = CapturePipeline.FRAME_HEIGHT_FRACTION,
-    val frameNormAspect: Float = 1f,
     val alignmentOffsetDp: Float = Float.MAX_VALUE,
     val holdProgress: Float = 0f,
     val countdownRemainingMs: Long = 0L,
@@ -66,7 +64,6 @@ class CapturePipeline(
     private var lastTickMs = 0L
     private var viewWidth = 0
     private var viewHeight = 0
-    private var previewAspect = 0.75f
     private var contentRect = RectF()
     private var motion = MotionSnapshot()
     private var lastShakeToken = 0L
@@ -88,13 +85,13 @@ class CapturePipeline(
     fun setViewport(width: Int, height: Int, pixelAspect: Float) {
         viewWidth = width
         viewHeight = height
-        previewAspect = pixelAspect
         contentRect = PreviewGeometry.contentRect(width, height, pixelAspect)
         emitUi()
     }
 
-    fun start(enableAutoCapture: Boolean) {
-        autoCapture = enableAutoCapture
+    /** Bật pipeline kèm tự chụp; tắt tự chụp thì dùng [stop]. */
+    fun start() {
+        autoCapture = true
         if (paused) {
             // Bật lại trong lúc tạm dừng: chỉ cần tiếp tục, không khởi động lại từ đầu.
             resume()
@@ -105,11 +102,7 @@ class CapturePipeline(
             return
         }
         errorMessage = null
-        holdMs = 0
-        countdownMs = 0
-        lockedOnTarget = false
-        alignmentOffsetDp = Float.MAX_VALUE
-        tracker.unlocked()
+        resetAlignment()
         lastShakeToken = motion.shakeToken
         setState(PipelineState.OPENING_CAMERA)
         startLoop()
@@ -133,11 +126,7 @@ class CapturePipeline(
         }
         paused = true
         stopLoop()
-        tracker.unlocked()
-        holdMs = 0
-        countdownMs = 0
-        lockedOnTarget = false
-        alignmentOffsetDp = Float.MAX_VALUE
+        resetAlignment()
     }
 
     /**
@@ -148,11 +137,7 @@ class CapturePipeline(
         if (!paused) return
         paused = false
         errorMessage = null
-        holdMs = 0
-        countdownMs = 0
-        lockedOnTarget = false
-        alignmentOffsetDp = Float.MAX_VALUE
-        tracker.unlocked()
+        resetAlignment()
         lastShakeToken = motion.shakeToken
         regionSearchStartMs = SystemClock.elapsedRealtime()
         setState(PipelineState.WAITING_STABLE)
@@ -161,12 +146,8 @@ class CapturePipeline(
 
     fun stop() {
         paused = false
-        tracker.unlocked()
         autoCapture = false
-        holdMs = 0
-        countdownMs = 0
-        lockedOnTarget = false
-        alignmentOffsetDp = Float.MAX_VALUE
+        resetAlignment()
         setState(PipelineState.WAITING)
         stopLoop()
     }
@@ -361,6 +342,15 @@ class CapturePipeline(
         onCaptureRequested()
     }
 
+    /** Xoá khung đang khóa + mọi tiến trình giữ/đếm; dùng chung cho start/pause/resume/stop. */
+    private fun resetAlignment() {
+        holdMs = 0
+        countdownMs = 0
+        lockedOnTarget = false
+        alignmentOffsetDp = Float.MAX_VALUE
+        tracker.unlocked()
+    }
+
     private fun defaultCenterFrame(): RectF {
         val height = FRAME_HEIGHT_FRACTION
         val width = height * FRAME_NORM_ASPECT
@@ -387,8 +377,6 @@ class CapturePipeline(
             PipelineUi(
                 state = state,
                 frameCenter = frameCenter,
-                frameHeightFraction = FRAME_HEIGHT_FRACTION,
-                frameNormAspect = FRAME_NORM_ASPECT,
                 alignmentOffsetDp = alignmentOffsetDp,
                 holdProgress = (holdMs.toFloat() / ALIGN_HOLD_MS).coerceIn(0f, 1f),
                 countdownRemainingMs = (settings.captureDelayMs - countdownMs).coerceAtLeast(0L),

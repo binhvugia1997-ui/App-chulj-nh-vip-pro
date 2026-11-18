@@ -11,7 +11,6 @@ import kotlin.math.abs
 data class DevicePosture(
     val yawDeg: Float = 0f,
     val pitchDeg: Float = 0f,
-    val rollDeg: Float = 0f,
     val valid: Boolean = false,
 )
 
@@ -34,8 +33,6 @@ class DeviceOrientation(context: Context) : SensorEventListener {
     private val rotationSensor: Sensor? =
         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
             ?: sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
-
-    val hasSensor: Boolean = rotationSensor != null
 
     @Volatile
     var posture: DevicePosture = DevicePosture()
@@ -72,7 +69,6 @@ class DeviceOrientation(context: Context) : SensorEventListener {
 
         val yaw = Math.toDegrees(orientation[0].toDouble()).toFloat()
         val pitch = Math.toDegrees(orientation[1].toDouble()).toFloat()
-        val roll = Math.toDegrees(orientation[2].toDouble()).toFloat()
         val now = SystemClock.elapsedRealtime()
 
         if (previousMs != 0L) {
@@ -84,7 +80,7 @@ class DeviceOrientation(context: Context) : SensorEventListener {
 
         previousYaw = yaw
         previousMs = now
-        posture = DevicePosture(yawDeg = yaw, pitchDeg = pitch, rollDeg = roll, valid = true)
+        posture = DevicePosture(yawDeg = yaw, pitchDeg = pitch, valid = true)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit

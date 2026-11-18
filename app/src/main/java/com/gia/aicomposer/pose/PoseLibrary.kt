@@ -414,8 +414,6 @@ object PoseLibrary {
         },
     )
 
-    fun byId(id: String): PoseTemplate? = poses.firstOrNull { it.id == id }
-
     /** Nhãn COCO -> affordance có thể dùng cho dáng. */
     fun affordancesForLabel(label: String): Set<Affordance> = when (label.lowercase()) {
         "chair", "bench", "couch" -> setOf(Affordance.CHAIR)

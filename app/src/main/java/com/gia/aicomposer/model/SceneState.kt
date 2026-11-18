@@ -15,27 +15,21 @@ data class SceneObject(
     val affordances: Set<Affordance>,
 )
 
-/** Một vùng trống trong khung, toạ độ chuẩn hoá 0..1. */
-data class FreeRegion(val box: RectF) {
-    val heightFraction: Float get() = box.height()
-    val widthFraction: Float get() = box.width()
-}
-
 /**
- * Kết quả nhận diện cảnh của một khung: vật thể + độ tin cậy + vùng sâu + các vùng trống.
- * SceneState.empty() là fallback offline: không có model vẫn còn vùng trống toàn khung.
+ * Kết quả nhận diện cảnh của một khung: vật thể + độ tin cậy + vùng sâu + vùng trống lớn nhất.
+ * [freeRegion] luôn có giá trị (mặc định cả khung) nên không cần null-check.
+ * SceneState.empty() là fallback offline: không có model vẫn còn vùng trống để chọn dáng.
  */
 data class SceneState(
     val objects: List<SceneObject> = emptyList(),
-    val freeRegions: List<FreeRegion> = emptyList(),
+    /** Hình chữ nhật trống lớn nhất, chuẩn hoá 0..1. */
+    val freeRegion: RectF = RectF(0f, 0f, 1f, 1f),
     val nearClutterRatio: Float = 0f,
-    val timestampMs: Long = 0L,
 ) {
-    val tallestOpenRegion: Float
-        get() = freeRegions.maxOfOrNull { it.heightFraction } ?: 0f
+    val tallestOpenRegion: Float get() = freeRegion.height()
 
     val hasOpenGround: Boolean
-        get() = freeRegions.any { it.heightFraction >= 0.45f && it.widthFraction >= 0.20f }
+        get() = freeRegion.height() >= 0.45f && freeRegion.width() >= 0.20f
 
     val affordances: Set<Affordance>
         get() {
@@ -45,8 +39,7 @@ data class SceneState(
             return result
         }
 
-    val isFrontBusy: Boolean
-        get() = nearClutterRatio > 0.35f
+    val isFrontBusy: Boolean get() = nearClutterRatio > BUSY_CLUTTER_RATIO
 
     val summary: String
         get() = objects.take(3).joinToString(separator = ", ") {
@@ -54,8 +47,11 @@ data class SceneState(
         }
 
     companion object {
+        /** Vật gần che quá 35% khung thì coi là nền trước lộn xộn. */
+        const val BUSY_CLUTTER_RATIO = 0.35f
+
         fun empty(): SceneState = SceneState(
-            freeRegions = listOf(FreeRegion(RectF(0.10f, 0f, 0.90f, 1f))),
+            freeRegion = RectF(0.10f, 0f, 0.90f, 1f),
         )
     }
 }

@@ -1,7 +1,5 @@
 package com.gia.aicomposer.pose
 
-import android.graphics.RectF
-
 /**
  * Thư viện dáng viết tay: mỗi dáng là tập keypoint tỉ lệ 0..1 trong khung riêng
  * và tỉ lệ aspect thật của khung đó.
@@ -38,17 +36,6 @@ data class PoseTemplate(
     /** Các xương vẽ được từ tập keypoint hiện có (dáng nửa người không có chân). */
     val bones: List<Pair<Joint, Joint>> =
         BONE_DEFINITIONS.filter { joints.containsKey(it.first) && joints.containsKey(it.second) }
-
-    fun frameRect(centerX: Float, centerY: Float, heightFraction: Float): RectF {
-        val height = heightFraction.coerceIn(0.15f, 1f)
-        val width = height * aspect
-        return RectF(
-            centerX - width / 2f,
-            centerY - height / 2f,
-            centerX + width / 2f,
-            centerY + height / 2f,
-        )
-    }
 
     companion object {
         val BONE_DEFINITIONS: List<Pair<Joint, Joint>> = listOf(

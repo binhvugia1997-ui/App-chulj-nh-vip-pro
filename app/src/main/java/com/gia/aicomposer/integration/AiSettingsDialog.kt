@@ -49,11 +49,10 @@ object AiSettingsDialog {
         val delayValue = TextView(activity).apply {
             text = activity.getString(R.string.settings_delay_value, settings.captureDelayMs / 1000f)
         }
-        val steps = (AppSettings.MAX_CAPTURE_DELAY_MS - AppSettings.MIN_CAPTURE_DELAY_MS) / DELAY_STEP_MS
+        val maxSteps = ((AppSettings.MAX_CAPTURE_DELAY_MS - AppSettings.MIN_CAPTURE_DELAY_MS) / DELAY_STEP_MS).toInt()
         val slider = SeekBar(activity).apply {
-            max = steps.toInt()
-            progress = (settings.captureDelayMs / DELAY_STEP_MS).toInt()
-                .coerceIn(0, steps.toInt())
+            max = maxSteps
+            progress = (settings.captureDelayMs / DELAY_STEP_MS).toInt().coerceIn(0, maxSteps)
         }
         slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {

@@ -24,8 +24,6 @@ class FrameLockTracker(private val density: Float) {
         val center: PointF,
         val distanceFactor: Float,
         val zoomFactor: Float,
-        val basePosture: DevicePosture?,
-        val lockedAtMs: Long,
     )
 
     private var lock: Lock? = null
@@ -34,8 +32,6 @@ class FrameLockTracker(private val density: Float) {
 
     /** Tư thế gốc; nếu cảm biến chưa sẵn sàng lúc khóa thì lấy mẫu hợp lệ đầu tiên. */
     private var basePosture: DevicePosture? = null
-
-    val isLocked: Boolean get() = lock != null
 
     fun lock(
         center: PointF,
@@ -48,8 +44,6 @@ class FrameLockTracker(private val density: Float) {
             center = PointF(center.x, center.y),
             distanceFactor = distanceFactor.coerceIn(MIN_DISTANCE_FACTOR, MAX_DISTANCE_FACTOR),
             zoomFactor = zoomFactor,
-            basePosture = posture,
-            lockedAtMs = nowMs,
         )
         smoothedPx = null
         lastUpdateMs = nowMs

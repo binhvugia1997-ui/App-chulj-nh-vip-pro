@@ -21,6 +21,11 @@ import kotlin.math.abs
  *
  * Tra ve toa do chuan hoa 0..1 theo khung hinh SAU KHI XOAY ve dung
  * (x: trai->phai, y: tren->duoi), hoac null neu khong du tuong phan.
+ *
+ * Doc duoc ca 2 dinh dang ImageAnalysis:
+ * - YUV_420_888 (mac dinh): pixelStride = 1, doc thang mat phang Y nhu cu.
+ * - RGBA_8888 (use case cua AiCameraAssistant): pixelStride = 4, tinh luma
+ *   BT.601 tu R/G/B nen con so ra giong het truong hop Y.
  */
 class SubjectTracker {
 
@@ -32,6 +37,7 @@ class SubjectTracker {
         val yPlane = image.planes[0]
         val buffer: ByteBuffer = yPlane.buffer
         val rowStride = yPlane.rowStride
+        val pixelStride = yPlane.pixelStride
         val width = image.width
         val height = image.height
         val rotation = image.imageInfo.rotationDegrees
@@ -49,18 +55,23 @@ class SubjectTracker {
             for (c in 0 until cols) {
                 var sum = 0
                 var n = 0
-                var y = r * cellH
-                while (y < (r + 1) * cellH) {
-                    var x = c * cellW
-                    while (x < (c + 1) * cellW) {
-                        val idx = y * rowStride + x
-                        if (idx < buffer.capacity()) {
+                for (y in r * cellH until (r + 1) * cellH step 2) {
+                    for (x in c * cellW until (c + 1) * cellW step 2) {
+                        val idx = y * rowStride + x * pixelStride
+                        if (pixelStride >= 3) {
+                            // RGBA_8888: luma xap xi tu 3 kenh, thang 0..255 nhu mat phang Y.
+                            if (idx + 2 < buffer.capacity()) {
+                                val red = buffer.get(idx).toInt() and 0xFF
+                                val green = buffer.get(idx + 1).toInt() and 0xFF
+                                val blue = buffer.get(idx + 2).toInt() and 0xFF
+                                sum += (red * 77 + green * 150 + blue * 29) shr 8
+                                n++
+                            }
+                        } else if (idx < buffer.capacity()) {
                             sum += buffer.get(idx).toInt() and 0xFF
                             n++
                         }
-                        x += 2
                     }
-                    y += 2
                 }
                 val mean = if (n > 0) sum.toFloat() / n else 0f
                 cellMean[r * cols + c] = mean

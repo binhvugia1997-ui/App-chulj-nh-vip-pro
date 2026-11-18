@@ -12,6 +12,7 @@ import android.util.AttributeSet
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.gia.aicomposer.R
+import com.gia.aicomposer.pose.Joint
 import com.gia.aicomposer.pose.PoseTemplate
 import com.gia.aicomposer.util.PreviewGeometry
 import kotlin.math.min
@@ -180,9 +181,9 @@ class PoseOverlayView @JvmOverloads constructor(
         val headRoom = poseHeight * HEAD_ROOM
         val usableHeight = poseHeight - headRoom
 
-        fun pointOf(joint: com.gia.aicomposer.pose.Joint): PointF? {
-            val point = template.joints[joint] ?: return null
-            return PointF(left + point.x * poseWidth, top + headRoom + point.y * usableHeight)
+        // Đổi keypoint 0..1 sang toạ độ view một lần, dùng cho cả xương, khớp và đầu.
+        val viewPoints = template.joints.mapValues { (_, point) ->
+            PointF(left + point.x * poseWidth, top + headRoom + point.y * usableHeight)
         }
 
         posePaint.color = accentColor
@@ -191,23 +192,20 @@ class PoseOverlayView @JvmOverloads constructor(
         jointPaint.alpha = 235
 
         for ((start, end) in template.bones) {
-            val startPoint = pointOf(start) ?: continue
-            val endPoint = pointOf(end) ?: continue
+            val startPoint = viewPoints[start] ?: continue
+            val endPoint = viewPoints[end] ?: continue
             canvas.drawLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y, posePaint)
         }
 
-        for ((_, point) in template.joints) {
-            val viewPoint = PointF(left + point.x * poseWidth, top + headRoom + point.y * usableHeight)
+        for (viewPoint in viewPoints.values) {
             canvas.drawCircle(viewPoint.x, viewPoint.y, 2.6f * density, jointPaint)
         }
 
         // Đầu là hình tròn rỗng cho dễ nhìn.
-        val head = template.joints[com.gia.aicomposer.pose.Joint.HEAD]
-        if (head != null) {
-            val headCenter = PointF(left + head.x * poseWidth, top + headRoom + head.y * usableHeight)
+        viewPoints[Joint.HEAD]?.let { head ->
             canvas.drawCircle(
-                headCenter.x,
-                headCenter.y,
+                head.x,
+                head.y,
                 (poseWidth * 0.075f).coerceAtLeast(7f * density),
                 posePaint,
             )

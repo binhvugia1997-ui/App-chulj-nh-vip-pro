@@ -1,7 +1,6 @@
 package com.gia.aicomposer.integration
 
 import android.net.Uri
-import android.os.Environment
 import android.os.SystemClock
 import android.util.Log
 import android.util.Size
@@ -30,15 +29,11 @@ import com.gia.aicomposer.pipeline.PipelineUi
 import com.gia.aicomposer.pipeline.StabilityMonitor
 import com.gia.aicomposer.pose.PoseScorer
 import com.gia.aicomposer.pose.PoseSuggestion
-import com.gia.aicomposer.pose.PoseTemplate
 import com.gia.aicomposer.settings.AppSettings
+import com.gia.aicomposer.util.PhotoStore
 import com.gia.aicomposer.util.toArgbBitmap
 import com.gia.aicomposer.vision.FramingAnalyzer
 import com.gia.aicomposer.vision.SceneAnalyzer
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -96,7 +91,15 @@ class AiCameraAssistant(
     var currentSuggestion: PoseSuggestion? = null
         private set
 
-    val currentPose: PoseTemplate? get() = currentSuggestion?.pose
+    /**
+     * Analyzer cũ của activity (ví dụ `SubjectTracker`) chạy trên **cùng** [imageAnalysis].
+     *
+     * CameraX chỉ cho bind một `ImageAnalysis` mỗi camera, nên khi ghép vào app đã có luồng
+     * phân tích riêng (chấm vàng + tự chụp heuristic) thì chuyển analyzer đó vào đây thay vì
+     * bind use case thứ hai. Callback chạy trên analysis thread, **trước** khi proxy bị đóng;
+     * không được gọi `proxy.close()` bên trong.
+     */
+    var legacyFrameTap: ((ImageProxy) -> Unit)? = null
 
     private val density = activity.resources.displayMetrics.density
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -118,6 +121,7 @@ class AiCameraAssistant(
     private var lastSceneRequestMs = 0L
     private var lastFramingRequestMs = 0L
     private var lastAutoCapture = false
+    private var lastGuidance: String? = null
     private var latestUi = PipelineUi(state = PipelineState.WAITING)
 
     private var imageCapture: ImageCapture? = null
@@ -140,6 +144,8 @@ class AiCameraAssistant(
             ),
         )
         overlay.previewAspect = previewAspect
+        overlay.frameHeightFraction = CapturePipeline.FRAME_HEIGHT_FRACTION
+        overlay.frameNormAspect = CapturePipeline.FRAME_NORM_ASPECT
         overlay.showPose = settings.poseSuggestionsEnabled
 
         imageAnalysis = ImageAnalysis.Builder()
@@ -171,7 +177,6 @@ class AiCameraAssistant(
         }
 
         overlay.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
-            overlay.previewAspect = previewAspect
             pipeline.setViewport(view.width, view.height, previewAspect)
         }
     }
@@ -226,7 +231,7 @@ class AiCameraAssistant(
     fun onCameraOpened() {
         cameraReady = true
         pipeline.onCameraOpened()
-        if (settings.autoCaptureEnabled) pipeline.start(true)
+        syncAutoCapture()
     }
 
     // ------------------------------------------------------------ hành động
@@ -264,8 +269,7 @@ class AiCameraAssistant(
     /** Bật/tắt tự căn khung + tự chụp (dùng cho switch trên màn hình chính và trong Cài đặt). */
     fun setAutoCaptureEnabled(enabled: Boolean) {
         settings.autoCaptureEnabled = enabled
-        if (!cameraReady) return
-        if (enabled) pipeline.start(true) else pipeline.stop()
+        syncAutoCapture()
     }
 
     /** Mở hộp thoại cài đặt (gợi ý dáng / tự chụp / độ trễ). */
@@ -275,16 +279,20 @@ class AiCameraAssistant(
 
     // ------------------------------------------------------------ nội bộ
 
+    private fun syncAutoCapture() {
+        if (!cameraReady) return
+        if (settings.autoCaptureEnabled) pipeline.start() else pipeline.stop()
+    }
+
     private fun applyUserSettings() {
         val poseEnabled = settings.poseSuggestionsEnabled
         overlay.pose = currentSuggestion?.pose
         overlay.showPose = poseEnabled && currentSuggestion != null
         listener?.onPoseSuggestionsToggled(poseEnabled)
 
-        if (cameraReady) {
-            if (settings.autoCaptureEnabled) pipeline.start(true) else pipeline.stop()
-        }
+        syncAutoCapture()
         listener?.onAutoCaptureChanged(settings.autoCaptureEnabled)
+        lastGuidance = null
         listener?.onGuidance(guidanceFor(latestUi))
     }
 
@@ -295,6 +303,7 @@ class AiCameraAssistant(
     private fun analyzeFrame(proxy: ImageProxy) {
         try {
             if (released) return
+            legacyFrameTap?.invoke(proxy)
             val now = SystemClock.elapsedRealtime()
             val needsScene = settings.poseSuggestionsEnabled &&
                 now - lastSceneRequestMs >= SCENE_INTERVAL_MS
@@ -319,29 +328,37 @@ class AiCameraAssistant(
         }
     }
 
+    /**
+     * Ảnh của pipeline đi cùng một đường lưu với ảnh chụp tay ([PhotoStore]): MediaStore album
+     * `Pictures/AICameraComposer` trên Android 10+, thư mục ảnh của app trên Android 8-9.
+     * Nhờ vậy ảnh tự chụp hiện ngay trong GalleryActivity, không nằm trong thư mục riêng của app.
+     */
     private fun capturePhoto() {
         val capture = imageCapture
-        val file = createPhotoFile()
-        if (!cameraReady || capture == null || file == null) {
-            pipeline.onCaptureFailed("camera/storage not ready")
-            listener?.onCaptureFailed("camera/storage not ready")
+        if (!cameraReady || capture == null) {
+            failCapture("camera not ready")
+            return
+        }
+        val target = PhotoStore.prepare(activity)
+        if (target == null) {
+            failCapture("storage not ready")
             return
         }
 
-        val options = ImageCapture.OutputFileOptions.Builder(file).build()
         capture.takePicture(
-            options,
+            target.options,
             ContextCompat.getMainExecutor(activity),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    Log.d(TAG, "saved ${file.absolutePath}")
-                    val uri = Uri.fromFile(file)
+                    val uri = PhotoStore.publish(activity, target, outputFileResults)
+                    Log.d(TAG, "saved $uri")
                     pipeline.onCaptureSaved()
                     listener?.onCaptureSaved(uri)
                 }
 
                 override fun onError(exception: ImageCaptureException) {
                     Log.e(TAG, "takePicture failed", exception)
+                    PhotoStore.discard(target)
                     pipeline.onCaptureFailed(exception.message)
                     listener?.onCaptureFailed(exception.message)
                 }
@@ -349,21 +366,14 @@ class AiCameraAssistant(
         )
     }
 
-    private fun createPhotoFile(): File? {
-        val base = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-            ?: activity.filesDir
-            ?: return null
-        val dir = File(base, PHOTO_DIR)
-        if (!dir.exists() && !dir.mkdirs()) return null
-        val name = "AIC_${SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())}.jpg"
-        return File(dir, name)
+    private fun failCapture(message: String) {
+        pipeline.onCaptureFailed(message)
+        listener?.onCaptureFailed(message)
     }
 
     private fun render(ui: PipelineUi) {
         latestUi = ui
         overlay.frameCenter = ui.frameCenter
-        overlay.frameHeightFraction = ui.frameHeightFraction
-        overlay.frameNormAspect = ui.frameNormAspect
         overlay.showFrame =
             ui.state.ordinal >= PipelineState.FINDING_REGION.ordinal &&
                 ui.state != PipelineState.ERROR
@@ -373,7 +383,12 @@ class AiCameraAssistant(
             ui.lockedOnTarget || ui.alignmentOffsetDp <= CapturePipeline.ALIGN_TOLERANCE_DP
         overlay.holdProgress = ui.holdProgress
 
-        listener?.onGuidance(guidanceFor(ui))
+        // render() chạy mỗi tick (~33ms): chỉ đẩy chữ lên UI khi câu hướng dẫn đổi.
+        val guidance = guidanceFor(ui)
+        if (guidance != lastGuidance) {
+            lastGuidance = guidance
+            listener?.onGuidance(guidance)
+        }
 
         if (!ui.autoCapture && lastAutoCapture) listener?.onAutoCaptureChanged(false)
         lastAutoCapture = ui.autoCapture
@@ -420,6 +435,5 @@ class AiCameraAssistant(
         private const val FRAMING_INTERVAL_MS = 280L
         private const val ANALYSIS_WIDTH = 640
         private const val ANALYSIS_HEIGHT = 480
-        private const val PHOTO_DIR = "AICameraComposer"
     }
 }

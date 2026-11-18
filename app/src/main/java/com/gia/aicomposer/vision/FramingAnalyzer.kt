@@ -10,9 +10,9 @@ import com.gia.aicomposer.util.rotatedSize
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
@@ -27,14 +27,9 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-enum class FramingSource { FACE, PERSON, SALIENCE, DEFAULT }
-
 data class FramingResult(
     /** Khung 3:4 chuẩn hoá 0..1 theo ảnh đã xoay đúng chiều. */
     val rect: RectF,
-    val source: FramingSource,
-    val score: Float,
-    val confidence: Float,
     /** Chiều cao chủ thể so với khung, dùng cho hệ số khoảng cách của drift. */
     val subjectHeightFraction: Float,
 )
@@ -55,8 +50,8 @@ class FramingAnalyzer(
 
     /**
      * Mỗi lúc chỉ một request đang chạy để khỏi dồn việc lên ML Kit.
-     * ML Kit không phải lúc nào cũng gọi callback (detector vừa bị đóng, task bị nuốt),
-     * nên mỗi request có một watchdog tự nhả cờ thay vì treo làn phân tích vĩnh viễn.
+     * ML Kit không phải lúc nào cũng gọi callback, nên mỗi request có một watchdog tự nhả cờ
+     * thay vì treo làn phân tích vĩnh viễn.
      */
     private val requestLock = Any()
     private var busy = false
@@ -64,7 +59,6 @@ class FramingAnalyzer(
     /** Tăng mỗi lần request được cấp/thu hồi; callback của request cũ bị bỏ qua. */
     private var generation = 0
 
-    /** Hẹn giờ của request đang chạy, huỷ khi request xong đúng hạn. */
     private var watchdogTask: ScheduledFuture<*>? = null
 
     private val watchdog: ScheduledExecutorService =
@@ -81,68 +75,84 @@ class FramingAnalyzer(
             .build(),
     )
 
-    private var poseLandmarker: PoseLandmarker? = null
-
-    init {
-        poseLandmarker = try {
-            val baseOptions = BaseOptions.builder()
-                .setModelAssetPath(POSE_MODEL_ASSET)
-                .setDelegate(Delegate.CPU)
-                .build()
-            PoseLandmarker.createFromOptions(
-                appContext,
-                PoseLandmarker.PoseLandmarkerOptions.builder()
-                    .setBaseOptions(baseOptions)
-                    .setRunningMode(RunningMode.IMAGE)
-                    .setNumPoses(1)
-                    .build(),
-            )
-        } catch (t: Throwable) {
-            Log.w(TAG, "pose landmarker unavailable, falling back to saliency", t)
-            null
-        }
+    private val poseLandmarker: PoseLandmarker? = try {
+        PoseLandmarker.createFromOptions(
+            appContext,
+            PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(
+                    BaseOptions.builder()
+                        .setModelAssetPath(POSE_MODEL_ASSET)
+                        .setDelegate(Delegate.CPU)
+                        .build(),
+                )
+                .setRunningMode(RunningMode.IMAGE)
+                .setNumPoses(1)
+                .build(),
+        )
+    } catch (t: Throwable) {
+        Log.w(TAG, "pose landmarker unavailable, falling back to saliency", t)
+        null
     }
 
-    fun submit(bitmap: Bitmap, rotationDegrees: Int) {
-        val request = beginRequest() ?: return
-        val (frameWidth, frameHeight) = rotatedSize(bitmap.width, bitmap.height, rotationDegrees)
-        val normAspect = PreviewGeometry.normalizedAspect(
-            pixelAspect = frameWidth.toFloat() / frameHeight.toFloat(),
-            targetAspect = TARGET_ASPECT,
-        )
+    /** Mọi thứ một lượt tìm khung cần, để callback không phải mang 7 tham số. */
+    private data class Request(
+        val id: Int,
+        val bitmap: Bitmap,
+        val rotationDegrees: Int,
+        val frameWidth: Int,
+        val frameHeight: Int,
+        val normAspect: Float,
+    )
 
+    private data class Candidate(
+        val rect: RectF,
+        val confidence: Float,
+        val focus: RectF,
+        val subjectHeight: Float,
+        val priorityBonus: Float,
+    )
+
+    fun submit(bitmap: Bitmap, rotationDegrees: Int) {
+        val request = beginRequest(bitmap, rotationDegrees) ?: return
         try {
             val input = InputImage.fromBitmap(bitmap, rotationDegrees)
             faceDetector.process(input)
-                .addOnSuccessListener(executor) { faces ->
-                    finish(request, faces, bitmap, rotationDegrees, frameWidth, frameHeight, normAspect)
-                }
-                .addOnFailureListener(executor) {
-                    finish(request, emptyList(), bitmap, rotationDegrees, frameWidth, frameHeight, normAspect)
-                }
+                .addOnSuccessListener(executor) { faces -> finish(request, faces) }
+                .addOnFailureListener(executor) { finish(request, emptyList()) }
         } catch (t: Throwable) {
             Log.w(TAG, "face detection failed", t)
-            finish(request, emptyList(), bitmap, rotationDegrees, frameWidth, frameHeight, normAspect)
+            finish(request, emptyList())
         }
     }
 
     /** Nhận request mới nếu đang rảnh; null khi request trước chưa xong. */
-    private fun beginRequest(): Int? = synchronized(requestLock) {
+    private fun beginRequest(bitmap: Bitmap, rotationDegrees: Int): Request? = synchronized(requestLock) {
         if (busy) return null
         busy = true
-        val request = ++generation
+        val id = ++generation
         watchdogTask = watchdog.schedule(
-            { abandonRequest(request) },
+            { abandonRequest(id) },
             STUCK_TIMEOUT_MS,
             TimeUnit.MILLISECONDS,
         )
-        request
+        val (frameWidth, frameHeight) = rotatedSize(bitmap.width, bitmap.height, rotationDegrees)
+        Request(
+            id = id,
+            bitmap = bitmap,
+            rotationDegrees = rotationDegrees,
+            frameWidth = frameWidth,
+            frameHeight = frameHeight,
+            normAspect = PreviewGeometry.normalizedAspect(
+                pixelAspect = frameWidth.toFloat() / frameHeight.toFloat(),
+                targetAspect = TARGET_ASPECT,
+            ),
+        )
     }
 
     /** Watchdog: ML Kit im lặng quá lâu thì bỏ request đó và mở đường cho request sau. */
-    private fun abandonRequest(request: Int) {
+    private fun abandonRequest(id: Int) {
         synchronized(requestLock) {
-            if (request != generation || !busy) return
+            if (id != generation || !busy) return
             busy = false
             generation++
             watchdogTask = null
@@ -151,8 +161,8 @@ class FramingAnalyzer(
     }
 
     /** Nhận kết quả của request còn hiệu lực; false nếu đã bị watchdog bỏ. */
-    private fun claim(request: Int): Boolean = synchronized(requestLock) {
-        if (request != generation) return false
+    private fun claim(id: Int): Boolean = synchronized(requestLock) {
+        if (id != generation) return false
         busy = false
         generation++
         watchdogTask?.cancel(false)
@@ -160,34 +170,24 @@ class FramingAnalyzer(
         true
     }
 
-    private fun finish(
-        request: Int,
-        faces: List<Face>,
-        bitmap: Bitmap,
-        rotationDegrees: Int,
-        frameWidth: Int,
-        frameHeight: Int,
-        normAspect: Float,
-    ) {
+    private fun finish(request: Request, faces: List<Face>) {
         // Kết quả về muộn sau khi watchdog đã bỏ request: không dùng, cũng không đụng cờ busy.
-        if (!claim(request)) return
+        if (!claim(request.id)) return
         try {
             val candidates = mutableListOf<Candidate>()
 
             faces.sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
                 .take(2)
                 .forEach { face ->
-                    val box = normalizeRect(face.boundingBox, frameWidth, frameHeight)
+                    val box = normalizeRect(face.boundingBox, request.frameWidth, request.frameHeight)
                     val heightFraction = (box.height() * FACE_TO_SUBJECT_RATIO).coerceIn(0.25f, 0.98f)
-                    val rect = candidateRect(
-                        centerX = box.centerX(),
-                        centerY = box.centerY() + box.height() * 0.6f,
-                        heightFraction = heightFraction,
-                        normAspect = normAspect,
-                    )
                     candidates += Candidate(
-                        rect = rect,
-                        source = FramingSource.FACE,
+                        rect = candidateRect(
+                            centerX = box.centerX(),
+                            centerY = box.centerY() + box.height() * 0.6f,
+                            heightFraction = heightFraction,
+                            normAspect = request.normAspect,
+                        ),
                         confidence = FACE_CONFIDENCE,
                         focus = box,
                         subjectHeight = heightFraction,
@@ -195,40 +195,20 @@ class FramingAnalyzer(
                     )
                 }
 
-            if (faces.isEmpty()) {
-                poseCandidate(bitmap, rotationDegrees, normAspect)?.let { candidates += it }
-            }
+            if (faces.isEmpty()) poseCandidate(request)?.let { candidates += it }
+            saliencyCandidate(request)?.let { candidates += it }
 
-            saliencyCandidate(bitmap, rotationDegrees, normAspect)?.let { candidates += it }
-
-            val scored = candidates.maxByOrNull { score(it) }
-            if (scored == null || score(scored) < MIN_ACCEPTABLE_SCORE) {
-                onResult(centerResult(normAspect))
+            val best = candidates.maxByOrNull { score(it) }
+            if (best == null || score(best) < MIN_ACCEPTABLE_SCORE) {
+                onResult(centerResult(request.normAspect))
             } else {
-                onResult(
-                    FramingResult(
-                        rect = scored.rect,
-                        source = scored.source,
-                        score = score(scored),
-                        confidence = scored.confidence,
-                        subjectHeightFraction = scored.subjectHeight,
-                    ),
-                )
+                onResult(FramingResult(best.rect, best.subjectHeight))
             }
         } catch (t: Throwable) {
             Log.w(TAG, "framing search failed", t)
-            onResult(centerResult(normAspect))
+            onResult(centerResult(request.normAspect))
         }
     }
-
-    private data class Candidate(
-        val rect: RectF,
-        val source: FramingSource,
-        val confidence: Float,
-        val focus: RectF,
-        val subjectHeight: Float,
-        val priorityBonus: Float,
-    )
 
     private fun score(candidate: Candidate): Float {
         val inside = intersectionRatio(candidate.rect, candidate.focus)
@@ -245,20 +225,22 @@ class FramingAnalyzer(
             candidate.priorityBonus
     }
 
-    private fun poseCandidate(
-        bitmap: Bitmap,
-        rotationDegrees: Int,
-        normAspect: Float,
-    ): Candidate? {
+    private fun poseCandidate(request: Request): Candidate? {
         val landmarker = poseLandmarker ?: return null
         return try {
-            val result: PoseLandmarkerResult = landmarker.detect(
-                BitmapImageBuilder(bitmap).build(),
-                com.google.mediapipe.tasks.vision.core.ImageProcessingOptions.builder()
-                    .setRotationDegrees(rotationDegrees)
-                    .build(),
-            )
+            val image = BitmapImageBuilder(request.bitmap).build()
+            val result = try {
+                landmarker.detect(
+                    image,
+                    ImageProcessingOptions.builder()
+                        .setRotationDegrees(request.rotationDegrees)
+                        .build(),
+                )
+            } finally {
+                runCatching { image.close() }
+            }
             val landmarks = result.landmarks().firstOrNull() ?: return null
+
             var minX = 1f
             var minY = 1f
             var maxX = 0f
@@ -279,15 +261,8 @@ class FramingAnalyzer(
 
             val body = RectF(minX, minY, maxX, maxY)
             val bodyHeight = (body.height() * 1.15f).coerceIn(0.3f, 0.98f)
-            val rect = candidateRect(
-                centerX = body.centerX(),
-                centerY = body.centerY(),
-                heightFraction = bodyHeight,
-                normAspect = normAspect,
-            )
             Candidate(
-                rect = rect,
-                source = FramingSource.PERSON,
+                rect = candidateRect(body.centerX(), body.centerY(), bodyHeight, request.normAspect),
                 confidence = (visibilitySum / visibleCount).coerceIn(0f, 1f),
                 focus = body,
                 subjectHeight = bodyHeight,
@@ -299,27 +274,28 @@ class FramingAnalyzer(
         }
     }
 
-    private fun saliencyCandidate(
-        bitmap: Bitmap,
-        rotationDegrees: Int,
-        normAspect: Float,
-    ): Candidate? {
-        return try {
-            val center = SaliencyFinder.brightestBusyCell(bitmap, rotationDegrees) ?: return null
-            val heightFraction = 0.72f
-            val rect = candidateRect(center.first, center.second, heightFraction, normAspect)
+    private fun saliencyCandidate(request: Request): Candidate? = try {
+        val center = SaliencyFinder.brightestBusyCell(request.bitmap, request.rotationDegrees)
+        if (center == null) {
+            null
+        } else {
+            val rect = candidateRect(
+                centerX = center.first,
+                centerY = center.second,
+                heightFraction = SALIENCE_HEIGHT,
+                normAspect = request.normAspect,
+            )
             Candidate(
                 rect = rect,
-                source = FramingSource.SALIENCE,
-                confidence = 0.45f,
+                confidence = SALIENCE_CONFIDENCE,
                 focus = rect,
-                subjectHeight = heightFraction,
+                subjectHeight = SALIENCE_HEIGHT,
                 priorityBonus = 0f,
             )
-        } catch (t: Throwable) {
-            Log.w(TAG, "saliency failed", t)
-            null
         }
+    } catch (t: Throwable) {
+        Log.w(TAG, "saliency failed", t)
+        null
     }
 
     private fun candidateRect(
@@ -335,16 +311,10 @@ class FramingAnalyzer(
         return RectF(left, top, left + width, top + height)
     }
 
-    private fun centerResult(normAspect: Float): FramingResult {
-        val rect = candidateRect(0.5f, 0.5f, 0.86f, normAspect)
-        return FramingResult(
-            rect = rect,
-            source = FramingSource.DEFAULT,
-            score = 0f,
-            confidence = 0f,
-            subjectHeightFraction = 0.86f,
-        )
-    }
+    private fun centerResult(normAspect: Float): FramingResult = FramingResult(
+        rect = candidateRect(0.5f, 0.5f, DEFAULT_HEIGHT, normAspect),
+        subjectHeightFraction = DEFAULT_HEIGHT,
+    )
 
     private fun normalizeRect(rect: Rect, frameWidth: Int, frameHeight: Int): RectF = RectF(
         (rect.left.toFloat() / frameWidth).coerceIn(0f, 1f),
@@ -362,12 +332,10 @@ class FramingAnalyzer(
     }
 
     private fun thirdsScore(x: Float, y: Float): Float {
-        val points = floatArrayOf(1f / 3f, 2f / 3f)
         var best = Float.MAX_VALUE
-        for (px in points) {
-            for (py in points) {
-                val distance = abs(x - px) + abs(y - py)
-                if (distance < best) best = distance
+        for (px in THIRD_POINTS) {
+            for (py in THIRD_POINTS) {
+                best = min(best, abs(x - px) + abs(y - py))
             }
         }
         return (1f - best / 0.5f).coerceIn(0f, 1f)
@@ -383,20 +351,24 @@ class FramingAnalyzer(
         watchdog.shutdownNow()
         runCatching { faceDetector.close() }
         runCatching { poseLandmarker?.close() }
-        poseLandmarker = null
     }
 
     companion object {
         private const val TAG = "FramingAnalyzer"
         private const val POSE_MODEL_ASSET = "pose_landmarker_lite.task"
         private const val TARGET_ASPECT = 3f / 4f
+        private const val DEFAULT_HEIGHT = 0.86f
         private const val FACE_TO_SUBJECT_RATIO = 4.2f
         private const val FACE_CONFIDENCE = 0.92f
         private const val FACE_PRIORITY_BONUS = 0.15f
         private const val PERSON_PRIORITY_BONUS = 0.10f
+        private const val SALIENCE_HEIGHT = 0.72f
+        private const val SALIENCE_CONFIDENCE = 0.45f
         private const val MIN_ACCEPTABLE_SCORE = 0.25f
         private const val VISIBILITY_THRESHOLD = 0.5f
         private const val MIN_POSE_LANDMARKS = 8
+
+        private val THIRD_POINTS = floatArrayOf(1f / 3f, 2f / 3f)
 
         /** Một lượt face detection bình thường mất dưới 200ms; quá mốc này coi như mất callback. */
         private const val STUCK_TIMEOUT_MS = 2_000L

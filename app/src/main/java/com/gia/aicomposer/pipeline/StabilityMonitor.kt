@@ -10,14 +10,8 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 data class MotionSnapshot(
-    val accelStd: Float = 0f,
-    val gyroStd: Float = 0f,
-    val isStill: Boolean = false,
     val isStable: Boolean = false,
-    val isShaking: Boolean = false,
-    val stableForMs: Long = 0L,
     val shakeToken: Long = 0L,
-    val sampleCount: Int = 0,
     val hasSensors: Boolean = false,
 )
 
@@ -25,12 +19,10 @@ data class MotionSnapshot(
  * Ổn định máy: đọc gia tốc + con quay ~60Hz, cửa sổ 0.8s, tính độ lệch chuẩn của
  * độ lớn vector. Yên khi std(gia tốc) < 0.12 và std(con quay) < 0.08.
  *
- * Cần 10 lần đánh giá liên tiếp (mỗi lần cách nhau 50ms ≈ 600ms) mới tính là yên,
- * 5 lần liên tiếp mới tính là rung. Rung mạnh (gia tốc > 1.5 hoặc con quay > 2.0)
- * thì tăng shakeToken để pipeline reset toàn bộ trạng thái khóa.
- *
- * Ngưỡng sẵn có của app (con quay 0.08 / 600ms) được giữ nguyên: GYRO_STILL_STD = 0.08
- * và 10 lần × 50ms ≈ 600ms chính là LEGACY_STABILITY_HOLD_MS.
+ * Cần 10 lần đánh giá liên tiếp, mỗi lần cách nhau 50ms, mới tính là yên: cửa sổ ~500ms
+ * (spec gốc: "10 lần yên thì đạt"; ngưỡng gyro 0.08 lấy từ app cũ vốn giữ 600ms — muốn đúng
+ * 600ms thì đặt [REQUIRED_STILL_EVALUATIONS] = 12). Rung mạnh (gia tốc > 1.5 hoặc con quay > 2.0)
+ * thì tăng [MotionSnapshot.shakeToken] để pipeline reset toàn bộ trạng thái khóa.
  */
 class StabilityMonitor(context: Context) : SensorEventListener {
 
@@ -41,14 +33,12 @@ class StabilityMonitor(context: Context) : SensorEventListener {
 
     val hasMotionSensors: Boolean = accelSensor != null || gyroSensor != null
 
-    /** Sensor mất sau một thời gian (một số máy tắt gyro khi tiết kiệm pin). */
     var onSnapshot: ((MotionSnapshot) -> Unit)? = null
 
     private val accelWindow = ArrayDeque<Pair<Long, Float>>()
     private val gyroWindow = ArrayDeque<Pair<Long, Float>>()
     private var lastEvaluationMs = 0L
     private var stillStreak = 0
-    private var shakeStreak = 0
     private var shakeToken = 0L
     private var running = false
 
@@ -67,25 +57,22 @@ class StabilityMonitor(context: Context) : SensorEventListener {
         accelWindow.clear()
         gyroWindow.clear()
         stillStreak = 0
-        shakeStreak = 0
         lastEvaluationMs = 0L
         publish(MotionSnapshot(hasSensors = hasMotionSensors, shakeToken = shakeToken))
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         val now = SystemClock.elapsedRealtime()
+        val values = event.values
+        val magnitude = sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2])
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
-                val values = event.values
-                val magnitude = sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2])
                 accelWindow.addLast(now to magnitude)
                 prune(accelWindow, now)
                 maybeEvaluate(now, magnitude)
             }
 
             Sensor.TYPE_GYROSCOPE -> {
-                val values = event.values
-                val magnitude = sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2])
                 gyroWindow.addLast(now to magnitude)
                 prune(gyroWindow, now)
             }
@@ -107,57 +94,25 @@ class StabilityMonitor(context: Context) : SensorEventListener {
 
         val accelStd = stdDev(accelWindow)
         val gyroStd = if (gyroWindow.size >= MIN_WINDOW_SAMPLES) stdDev(gyroWindow) else 0f
-        val instantDeviation = abs(instantAccel - SensorManager.GRAVITY_EARTH)
         val strongShake = accelStd > STRONG_SHAKE_ACCEL ||
             gyroStd > STRONG_SHAKE_GYRO ||
-            instantDeviation > STRONG_SHAKE_ACCEL
+            abs(instantAccel - SensorManager.GRAVITY_EARTH) > STRONG_SHAKE_ACCEL
 
         if (strongShake) {
             shakeToken++
             stillStreak = 0
-            shakeStreak = REQUIRED_SHAKE_EVALUATIONS
             accelWindow.clear()
             gyroWindow.clear()
-            publish(
-                MotionSnapshot(
-                    accelStd = accelStd,
-                    gyroStd = gyroStd,
-                    isStill = false,
-                    isStable = false,
-                    isShaking = true,
-                    stableForMs = 0L,
-                    shakeToken = shakeToken,
-                    sampleCount = accelWindow.size,
-                    hasSensors = hasMotionSensors,
-                ),
-            )
+            publish(MotionSnapshot(isStable = false, shakeToken = shakeToken, hasSensors = hasMotionSensors))
             return
         }
 
         val still = accelStd < ACCEL_STILL_STD && gyroStd < GYRO_STILL_STD
-        if (still) {
-            stillStreak++
-            shakeStreak = 0
-        } else {
-            stillStreak = 0
-            shakeStreak = if (accelStd > ACCEL_STILL_STD * 1.5f || gyroStd > GYRO_STILL_STD * 1.5f) {
-                shakeStreak + 1
-            } else {
-                (shakeStreak - 1).coerceAtLeast(0)
-            }
-        }
-
-        val isStable = stillStreak >= REQUIRED_STILL_EVALUATIONS
+        stillStreak = if (still) stillStreak + 1 else 0
         publish(
             MotionSnapshot(
-                accelStd = accelStd,
-                gyroStd = gyroStd,
-                isStill = still,
-                isStable = isStable,
-                isShaking = shakeStreak >= REQUIRED_SHAKE_EVALUATIONS,
-                stableForMs = stillStreak * EVALUATION_INTERVAL_MS,
+                isStable = stillStreak >= REQUIRED_STILL_EVALUATIONS,
                 shakeToken = shakeToken,
-                sampleCount = accelWindow.size,
                 hasSensors = hasMotionSensors,
             ),
         )
@@ -175,9 +130,8 @@ class StabilityMonitor(context: Context) : SensorEventListener {
             sum += value
             sumSq += value.toDouble() * value
         }
-        val count = window.size
-        val mean = sum / count
-        val variance = (sumSq / count) - mean * mean
+        val mean = sum / window.size
+        val variance = (sumSq / window.size) - mean * mean
         return if (variance <= 0.0) 0f else sqrt(variance).toFloat()
     }
 
@@ -186,19 +140,15 @@ class StabilityMonitor(context: Context) : SensorEventListener {
         const val WINDOW_MS = 800L
         /** ~60Hz. */
         const val SAMPLE_INTERVAL_US = 16_666
-        /** Nhịp đánh giá 50ms -> 10 lần ≈ 600ms. */
+        /** Nhịp đánh giá 50ms → 10 lần ≈ 500ms (12 lần mới tròn 600ms). */
         const val EVALUATION_INTERVAL_MS = 50L
 
         const val ACCEL_STILL_STD = 0.12f
+        /** Ngưỡng con quay cũ của app: 0.08. */
         const val GYRO_STILL_STD = 0.08f
         const val REQUIRED_STILL_EVALUATIONS = 10
-        const val REQUIRED_SHAKE_EVALUATIONS = 5
         const val STRONG_SHAKE_ACCEL = 1.5f
         const val STRONG_SHAKE_GYRO = 2.0f
         const val MIN_WINDOW_SAMPLES = 10
-
-        /** Ngưỡng sẵn có của app, giữ lại để đối chiếu: con quay 0.08 trong 600ms. */
-        const val LEGACY_STABILITY_GYRO_THRESHOLD = 0.08f
-        const val LEGACY_STABILITY_HOLD_MS = 600L
     }
 }
