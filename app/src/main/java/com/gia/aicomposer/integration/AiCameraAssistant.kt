@@ -151,8 +151,11 @@ class AiCameraAssistant(
         ) {
             val afState = result.get(CaptureResult.CONTROL_AF_STATE)
             val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+            // INACTIVE = camera không chạy AF (ống kính fix-focus, thường là camera trước).
+            // Coi như đã nét, nếu không thì cổng không bao giờ mở và máy đó không tự chụp được.
             val afConverged = afState == CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED ||
-                afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED
+                afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
+                afState == CaptureResult.CONTROL_AF_STATE_INACTIVE
             val aeConverged = aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED ||
                 aeState == CaptureResult.CONTROL_AE_STATE_LOCKED
             val now = SystemClock.elapsedRealtime()
