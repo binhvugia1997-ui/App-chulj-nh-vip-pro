@@ -89,7 +89,7 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Object detection (EfficientDet Lite0) + pose landmarks, bundled models in assets.
-    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    implementation("com.google.mediapipe:tasks-vision:1.2.3")
 
     // Face detection for the framing search (first priority in the pipeline).
     implementation("com.google.mlkit:face-detection:16.1.6")
