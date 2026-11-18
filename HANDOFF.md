@@ -140,3 +140,12 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
 - **Chưa nối** `AiCameraAssistant` vào `MainActivity` (vẫn như trước): nút “Gợi ý dáng” hiện chỉ dùng thư viện
   dáng offline, chưa vẽ hình que/khung 3:4 của module AI.
 - Chưa chụp được màn hình (VM không có emulator/KVM) — cần Gia xem lại bằng mắt trên máy thật.
+- **Cập nhật sau khi render thử:** các nút chỉ có icon chuyển từ `MaterialButton` + `app:icon` sang
+  `ImageButton` (`bg_icon_circle.xml` / `bg_shutter.xml`, ripple tròn) — vì render layout bằng Robolectric
+  không vẽ được compound drawable nên không kiểm tra bằng mắt được; `ImageButton` vẽ icon chắc chắn và
+  cũng gọn hơn. `GalleryActivity` chỉ đổi 3 chỗ `findViewById<Button>` → `findViewById<View>` cho
+  back/share/delete; `MainActivity` khai báo 5 nút đó là `View` (chỉ gắn listener).
+- Ảnh xem trước (render layout, không có luồng camera thật) nằm trong `docs/screenshots/`:
+  `01-camera.png`, `02-gallery-empty.png`, `03-gallery-grid.png`, `04-settings.png`, `05-onboarding.png`,
+  `00-probe.png` (thử nghiệm icon). Máy ảo **không chạy được** trong VM này (`/dev/kvm` không có quyền),
+  nên đây không phải ảnh chụp màn hình thật.

@@ -18,7 +18,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import android.widget.Button
 import android.widget.GridView
 import android.widget.ImageView
 import android.widget.TextView
@@ -83,9 +82,10 @@ class GalleryActivity : AppCompatActivity() {
         grid.adapter = adapter
         grid.setOnItemClickListener { _, _, position, _ -> showFull(photos[position]) }
         full.setOnClickListener { hideFull() }
-        findViewById<Button>(R.id.back_button).setOnClickListener { finish() }
-        findViewById<Button>(R.id.share_button).setOnClickListener { shareCurrent() }
-        findViewById<Button>(R.id.delete_button).setOnClickListener { confirmDeleteCurrent() }
+        // Các nút này là ImageButton (icon tròn) nên tìm theo View, chỉ cần gắn listener.
+        findViewById<View>(R.id.back_button).setOnClickListener { finish() }
+        findViewById<View>(R.id.share_button).setOnClickListener { shareCurrent() }
+        findViewById<View>(R.id.delete_button).setOnClickListener { confirmDeleteCurrent() }
 
         // Từ Android 10, app đọc được ảnh do chính nó tạo trong MediaStore mà không cần quyền.
         // Android 8-9 vẫn cần READ_EXTERNAL_STORAGE để đọc thư mục ảnh của app.

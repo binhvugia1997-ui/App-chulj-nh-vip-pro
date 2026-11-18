@@ -36,7 +36,7 @@
         <item name="android:paddingEnd">10dp</item>
         <item name="android:paddingTop">0dp</item>
         <item name="android:paddingBottom">0dp</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">11sp</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
         <item name="android:textColor">@color/pill_text_tint</item>
@@ -44,30 +44,10 @@
         <item name="strokeColor">@color/control_stroke</item>
         <item name="strokeWidth">1dp</item>
         <item name="cornerRadius">19dp</item>
-        <item name="iconSize">15dp</item>
+        <item name="iconSize">14dp</item>
         <item name="iconPadding">4dp</item>
         <item name="iconGravity">textStart</item>
         <item name="iconTint">@color/pill_icon_tint</item>
-        <item name="rippleColor">@color/ripple</item>
-    </style>
-
-    <!-- Nút tròn chỉ có icon (đổi camera, cài đặt, thư viện, gợi ý dáng, back/share/delete). -->
-    <style name="Widget.AICamera.IconButton" parent="Widget.Material3.Button.TextButton">
-        <item name="android:minWidth">0dp</item>
-        <item name="android:minHeight">0dp</item>
-        <item name="android:insetLeft">0dp</item>
-        <item name="android:insetTop">0dp</item>
-        <item name="android:insetRight">0dp</item>
-        <item name="android:insetBottom">0dp</item>
-        <item name="android:padding">0dp</item>
-        <item name="backgroundTint">@color/control_scrim</item>
-        <item name="strokeColor">@color/control_stroke</item>
-        <item name="strokeWidth">1dp</item>
-        <item name="cornerRadius">26dp</item>
-        <item name="iconSize">22dp</item>
-        <item name="iconPadding">0dp</item>
-        <item name="iconGravity">textStart</item>
-        <item name="iconTint">@color/white</item>
         <item name="rippleColor">@color/ripple</item>
     </style>
 </resources>

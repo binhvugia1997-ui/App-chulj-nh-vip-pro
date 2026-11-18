@@ -27,6 +27,7 @@
             android:layout_gravity="center"
             android:drawableTop="@drawable/ic_empty_gallery"
             android:drawablePadding="18dp"
+            android:drawableTint="@color/on_surface_variant"
             android:gravity="center"
             android:paddingStart="32dp"
             android:paddingEnd="32dp"
@@ -53,16 +54,18 @@
         android:clickable="false"
         android:focusable="false" />
 
-    <com.google.android.material.button.MaterialButton
+    <ImageButton
         android:id="@+id/back_button"
-        style="@style/Widget.AICamera.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_gravity="top|start"
         android:layout_marginStart="10dp"
         android:layout_marginTop="10dp"
+        android:background="@drawable/bg_icon_circle"
         android:contentDescription="@string/cd_back"
-        app:icon="@drawable/ic_arrow_back" />
+        android:padding="11dp"
+        android:src="@drawable/ic_arrow_back"
+        android:tint="@color/white" />
 
     <LinearLayout
         android:id="@+id/photo_actions"
@@ -74,22 +77,26 @@
         android:orientation="horizontal"
         android:visibility="gone">
 
-        <com.google.android.material.button.MaterialButton
+        <ImageButton
             android:id="@+id/share_button"
-            style="@style/Widget.AICamera.IconButton"
             android:layout_width="44dp"
             android:layout_height="44dp"
+            android:background="@drawable/bg_icon_circle"
             android:contentDescription="@string/gallery_share"
-            app:icon="@drawable/ic_share" />
+            android:padding="11dp"
+            android:src="@drawable/ic_share"
+            android:tint="@color/white" />
 
-        <com.google.android.material.button.MaterialButton
+        <ImageButton
             android:id="@+id/delete_button"
-            style="@style/Widget.AICamera.IconButton"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_marginStart="8dp"
+            android:background="@drawable/bg_icon_circle"
             android:contentDescription="@string/gallery_delete"
-            app:icon="@drawable/ic_delete" />
+            android:padding="11dp"
+            android:src="@drawable/ic_delete"
+            android:tint="@color/white" />
     </LinearLayout>
 
 </FrameLayout>

@@ -70,13 +70,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var overlay: CompositionOverlayView
     private lateinit var statusText: TextView
-    private lateinit var shutterButton: Button
-    private lateinit var galleryButton: Button
+    private lateinit var shutterButton: View
+    private lateinit var galleryButton: View
     private lateinit var autoButton: Button
     private lateinit var aspectButton: Button
-    private lateinit var switchCameraButton: Button
-    private lateinit var settingsButton: Button
-    private lateinit var poseButton: Button
+    private lateinit var switchCameraButton: View
+    private lateinit var settingsButton: View
+    private lateinit var poseButton: View
     private lateinit var poseChip: TextView
 
     private val appSettings by lazy { AppSettings(this) }
