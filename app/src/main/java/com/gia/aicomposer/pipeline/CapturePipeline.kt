@@ -49,6 +49,11 @@ class CapturePipeline(
     private val tracker: FrameLockTracker,
     private val orientation: DeviceOrientation,
     private val zoomProvider: () -> Float,
+    /**
+     * AF/AE đã hội tụ chưa. Mặc định `true` để giữ hành vi cũ khi host không gắn callback camera2;
+     * [com.gia.aicomposer.integration.AiCameraAssistant] nối vào [FocusGate].
+     */
+    private val focusReady: () -> Boolean = { true },
     private val onUi: (PipelineUi) -> Unit,
     private val onCaptureRequested: () -> Unit,
     private val onFinished: () -> Unit = {},
@@ -316,7 +321,8 @@ class CapturePipeline(
             return
         }
 
-        if (alignmentOffsetDp <= ALIGN_TOLERANCE_DP) {
+        // Phải vừa căn đúng tâm vừa có AF/AE hội tụ; thiếu một điều kiện là huỷ đếm như khi lệch.
+        if (alignmentOffsetDp <= ALIGN_TOLERANCE_DP && focusReady()) {
             holdMs += delta
             if (holdMs >= ALIGN_HOLD_MS) {
                 lockedOnTarget = true

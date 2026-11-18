@@ -1,5 +1,9 @@
 package com.gia.aicomposer.integration
 
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
@@ -8,7 +12,9 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.Camera
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -23,6 +29,7 @@ import com.gia.aicomposer.model.SceneState
 import com.gia.aicomposer.overlay.PoseOverlayView
 import com.gia.aicomposer.pipeline.CapturePipeline
 import com.gia.aicomposer.pipeline.DeviceOrientation
+import com.gia.aicomposer.pipeline.FocusGate
 import com.gia.aicomposer.pipeline.FrameLockTracker
 import com.gia.aicomposer.pipeline.PipelineState
 import com.gia.aicomposer.pipeline.PipelineUi
@@ -36,6 +43,7 @@ import com.gia.aicomposer.vision.FramingAnalyzer
 import com.gia.aicomposer.vision.SceneAnalyzer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * Điểm nối duy nhất cho toàn bộ tính năng AI của app.
@@ -127,6 +135,31 @@ class AiCameraAssistant(
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
 
+    /** Cổng AF/AE: pipeline chỉ tự chụp khi ảnh đã nét và phơi sáng ổn định. */
+    private val focusGate = FocusGate()
+
+    /** Host chưa dùng [imageCaptureBuilder] thì không có dữ liệu AF/AE → đừng chặn tự chụp. */
+    @Volatile
+    private var focusTrackingAttached = false
+
+    /** Đọc `CONTROL_AF_STATE` / `CONTROL_AE_STATE` của từng frame và đẩy vào [focusGate]. */
+    private val sessionCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            result: TotalCaptureResult,
+        ) {
+            val afState = result.get(CaptureResult.CONTROL_AF_STATE)
+            val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+            val afConverged = afState == CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED ||
+                afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED
+            val aeConverged = aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED ||
+                aeState == CaptureResult.CONTROL_AE_STATE_LOCKED
+            val now = SystemClock.elapsedRealtime()
+            activity.runOnUiThread { focusGate.onCaptureResult(afConverged, aeConverged, now) }
+        }
+    }
+
     private val lockTracker = FrameLockTracker(density)
     private val deviceOrientation = DeviceOrientation(activity)
     private val stabilityMonitor = StabilityMonitor(activity)
@@ -163,6 +196,7 @@ class AiCameraAssistant(
             tracker = lockTracker,
             orientation = deviceOrientation,
             zoomProvider = { camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f },
+            focusReady = { !focusTrackingAttached || focusGate.isReady() },
             onUi = ::render,
             onCaptureRequested = { capturePhoto() },
             onFinished = { listener?.onAutoCaptureChanged(false) },
@@ -220,6 +254,40 @@ class AiCameraAssistant(
     /** Gọi ngay sau khi tạo ImageCapture để assistant chụp được. */
     fun setImageCapture(capture: ImageCapture) {
         imageCapture = capture
+    }
+
+    /**
+     * Builder `ImageCapture` đã gắn callback đọc AF/AE.
+     *
+     * Host nên dùng hàm này thay cho `ImageCapture.Builder()`:
+     * `imageCapture = assistant.imageCaptureBuilder().build()`.
+     * Không dùng cũng không sao — khi đó [focusTrackingAttached] vẫn false và pipeline tự chụp
+     * như trước, chỉ mất điều kiện chờ nét/phơi sáng.
+     */
+    fun imageCaptureBuilder(): ImageCapture.Builder {
+        val builder = ImageCapture.Builder()
+        Camera2Interop.Extender(builder).setSessionCaptureCallback(sessionCaptureCallback)
+        focusTrackingAttached = true
+        return builder
+    }
+
+    /**
+     * Chạm để lấy nét + đo sáng tại điểm chuẩn hoá (0..1) trên preview.
+     * Reset [focusGate] để lần căn sau phải chờ AF/AE hội tụ lại từ đầu.
+     */
+    fun focusAt(normX: Float, normY: Float) {
+        val control = camera?.cameraControl ?: return
+        if (previewView.width <= 0 || previewView.height <= 0) return
+        val point = previewView.meteringPointFactory.createPoint(
+            normX.coerceIn(0f, 1f) * previewView.width,
+            normY.coerceIn(0f, 1f) * previewView.height,
+        )
+        val action = FocusMeteringAction
+            .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
+            .setAutoCancelDuration(FOCUS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build()
+        focusGate.reset()
+        control.startFocusAndMetering(action)
     }
 
     /** Gọi sau `bindToLifecycle` để pipeline đọc được zoom ratio. */
@@ -435,5 +503,8 @@ class AiCameraAssistant(
         private const val FRAMING_INTERVAL_MS = 280L
         private const val ANALYSIS_WIDTH = 640
         private const val ANALYSIS_HEIGHT = 480
+
+        /** AF/AE tự huỷ sau 3 s nếu camera không hội tụ (tránh khoá cứng ở cảnh khó). */
+        private const val FOCUS_TIMEOUT_SECONDS = 3L
     }
 }

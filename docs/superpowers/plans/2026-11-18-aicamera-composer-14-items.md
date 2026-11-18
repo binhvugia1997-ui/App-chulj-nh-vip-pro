@@ -242,7 +242,7 @@ git commit -m "docs: ship the integration as an apply-able patch"
   - `CapturePipeline(..., focusReady: () -> Boolean = { true })`
   - `AiCameraAssistant.focusAt(normX: Float, normY: Float)`
 
-- [ ] **Step 1: Viết test đỏ cho `FocusGate`**
+- [x] **Step 1: Viết test đỏ cho `FocusGate`** (xong 2026-11-18)
 
 `FocusGateTest.kt`:
 ```kotlin
@@ -268,25 +268,30 @@ git commit -m "docs: ship the integration as an apply-able patch"
 ```
 (JUnit4 + Robolectric như các test khác.)
 
-- [ ] **Step 2: Chạy test để thấy đỏ**
+- [x] **Step 2: Chạy test để thấy đỏ** (xong 2026-11-18)
 
 Run: `./gradlew :app:testDebugUnitTest --tests '*FocusGateTest*' --no-daemon`
 Expected: FAIL `Unresolved reference: FocusGate`.
+Kết quả: `compileDebugUnitTestKotlin FAILED` với 5 lỗi `Unresolved reference: FocusGate` (exit 1).
+Ghi chú: test viết thêm 2 case `resetMakesItUnreadyAgain` và `exposureDivergenceAlsoResetsTheWindow`
+→ 5 test thay vì 3.
 
-- [ ] **Step 3: Viết `FocusGate`**
+- [x] **Step 3: Viết `FocusGate`** (xong 2026-11-18)
 
 `pipeline/FocusGate.kt`, logic: giữ `convergedSinceMs: Long?`; mỗi lần gọi, nếu `afConverged && aeConverged` thì set nếu null, ngược lại set `null`; `isReady()` = `convergedSinceMs != null && nowMs - convergedSinceMs >= settleWindowMs` (lưu `nowMs` lần gọi cuối vào field `lastMs`).
 
-- [ ] **Step 4: Nối vào pipeline và assistant**
+- [x] **Step 4: Nối vào pipeline và assistant** (xong 2026-11-18)
 
 - `CapturePipeline`: thêm tham số `focusReady: () -> Boolean = { true }`; trong `updateAlignment`, đổi điều kiện thành `if (alignmentOffsetDp <= ALIGN_TOLERANCE_DP && focusReady())`, nhánh `else` giữ nguyên việc reset `holdMs/countdownMs`.
 - `AiCameraAssistant`: giữ `ImageCapture.Builder` trong một field tạm khi dựng use case (hoặc nhận `ImageCapture` đã build từ host — khi đó host phải gắn callback), rồi `Camera2Interop.Extender(builder).setSessionCaptureCallback(cb)`; `cb` đọc `CaptureResult.CONTROL_AF_STATE` (`PASSIVE_FOCUSED`/`FOCUSED_LOCKED` → converged) và `CONTROL_AE_STATE` (`CONVERGED`/`LOCKED` → converged) rồi gọi `focusGate.onCaptureResult(..., SystemClock.elapsedRealtime())` trên main thread. Truyền `focusReady = { focusGate.isReady() }` vào `CapturePipeline`; `focusAt()` gọi `cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(...).build())` và `focusGate.reset()` để lần căn sau phải chờ AF/AE lại từ đầu.
 - `MainActivity` thật (theo `INTEGRATION.md`): thêm `previewView.setOnTouchListener` → `assistant.focusAt(x / width, y / height)`.
 
-- [ ] **Step 5: Chạy test + build**
+- [x] **Step 5: Chạy test + build** (xong 2026-11-18)
 
 Run: `./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon`
 Expected: toàn bộ test xanh (47 test cũ + `FocusGateTest`), `BUILD SUCCESSFUL`.
+Kết quả: `BUILD SUCCESSFUL`, **52 test, 0 fail** (47 cũ + 5 `FocusGateTest`). 2 APK ABI splits vẫn ra đủ:
+arm64 57.563.730 B, x86_64 62.870.665 B (+~50 KB so với trước Task 5).
 
 - [ ] **Step 6: Commit**
 

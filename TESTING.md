@@ -57,6 +57,7 @@ Chuẩn bị chung (cả hai máy):
 | **D9** Khoá màn hình / chuyển app (sửa `onStop`) | Khoá màn hình khi đang *Căn tâm…*, rồi khi đang *Đang chụp…*; mở lại | Không crash; về *Giữ máy yên* rồi chạy tiếp; không còn ảnh “ma”/đếm ngược treo; nếu rơi đúng lúc chụp thì ảnh vẫn được lưu và pipeline về *Sẵn sàng* | Crash, pipeline chết, đếm ngược tiếp tục chạy khi màn hình khoá, ảnh lưu nhưng switch vẫn ON |
 | **D10** Watchdog khi ML Kit bận (sửa `busy`) | Chĩa vào cảnh tối/thiếu sáng, bật tắt tự chụp 5 lần liên tiếp | Mỗi lần đều tới được *Căn tâm…* trong ≤ 3 s; khung vẫn cập nhật sau mỗi lần bật (không kẹt cờ `busy`) | Từ lần thứ 2 trở đi không có khung/kết quả mới, hoặc kẹt *Đang tìm vùng đẹp* |
 | **D11** Không cảm biến (máy thiếu gyro) | Chạy trên máy/emulator không gyro | Pipeline vẫn chạy nhờ mốc 600 ms, guidance không nhảy loạn | Kẹt *Giữ máy yên* vĩnh viễn |
+| **D12** AF/AE phải hội tụ mới tự chụp (`FocusGate`) | Ở *Căn tâm…*, lia máy từ cảnh sáng sang cảnh tối rồi căn lại; sau đó chạm vào preview để đổi điểm lấy nét | Không chụp trong ~0,4 s đầu khi AF/AE còn đang chạy; đếm khởi động lại sau mỗi lần chạm lấy nét; ảnh tự chụp nét, không nhoè | Chụp ngay khi vừa căn xong dù ảnh nhoè, hoặc không bao giờ tự chụp (host chưa dùng `imageCaptureBuilder()`) |
 
 ---
 
@@ -77,7 +78,7 @@ Chuẩn bị chung (cả hai máy):
 
 ## 4. Kết luận
 
-- **Đạt để giao**: E1–E12 đều đạt, G1–G5 đạt **và** D1–D8 đạt; D9–D11 là bắt buộc nếu máy test có khoá màn hình /
+- **Đạt để giao**: E1–E12 đều đạt, G1–G5 đạt **và** D1–D8 đạt; D9–D12 là bắt buộc nếu máy test có khoá màn hình /
   cảnh tối / thiếu gyro.
 - Ghi lại máy + Android version khi test, vì ngưỡng cảm biến và chất lượng ảnh phụ thuộc thiết bị:
 
@@ -85,7 +86,7 @@ Chuẩn bị chung (cả hai máy):
   Thiết bị: …   Android: …   Ngày: …
   E1 ☐ E2 ☐ E3 ☐ E4 ☐ E5 ☐ E6 ☐ E7 ☐ E8 ☐ E9 ☐ E10 ☐ E11 ☐ E12 ☐
   G1 ☐ G2 ☐ G3 ☐ G4 ☐ G5 ☐
-  D1 ☐ D2 ☐ D3 ☐ D4 ☐ D5 ☐ D6 ☐ D7 ☐ D8 ☐ D9 ☐ D10 ☐ D11 ☐
+  D1 ☐ D2 ☐ D3 ☐ D4 ☐ D5 ☐ D6 ☐ D7 ☐ D8 ☐ D9 ☐ D10 ☐ D11 ☐ D12 ☐
   ```
 - Mục nào ❌ thì gửi kèm: bước đang ở (guidance), `adb logcat -s AiCameraAssistant`, và ảnh chụp
   màn hình — đủ để khoanh vùng trong `CapturePipeline` / `FrameLockTracker` / `FramingAnalyzer`.
