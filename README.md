@@ -42,7 +42,7 @@ Nen nhieu chi tiet hoac nen sang/toi manh co the keo cham vang lech.
 ## Build
 
 Yeu cau: JDK 17+ (da test voi JDK 21), Android SDK voi
-`platform-tools`, `platforms;android-34`, `build-tools;34.0.0`.
+`platform-tools`, `platforms;android-36`, `build-tools;36.0.0`.
 `local.properties` da tro san toi SDK tren may ollama; neu build o may
 khac thi sua lai `sdk.dir` hoac dat bien `ANDROID_HOME`.
 

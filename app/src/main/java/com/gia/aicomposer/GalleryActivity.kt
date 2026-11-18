@@ -26,6 +26,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.exifinterface.media.ExifInterface
 import com.gia.aicomposer.util.PhotoShare
 import com.gia.aicomposer.util.PhotoStore
@@ -62,7 +65,15 @@ class GalleryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_gallery)
+
+        val rootView = (findViewById<View>(android.R.id.content) as ViewGroup).getChildAt(0)
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         grid = findViewById(R.id.photo_grid)
         full = findViewById(R.id.full_photo)
