@@ -420,6 +420,38 @@ Nếu muốn nút "Tự dong" cũ điều khiển luôn pipeline AI, sửa liste
 `startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))`
 — uri `content://` nên không gặp `FileUriExposedException`.
 
+### 3.8 Đổi camera trước/sau (selfie) — lật overlay
+
+PreviewView tự lật ngang hình của camera trước, còn khung `ImageAnalysis` thì **không** lật. Vì vậy
+mọi toạ độ tracker phải lật lại lúc vẽ, còn dữ liệu lưu vẫn theo không gian camera:
+
+```kotlin
+private var lensFacing = CameraSelector.LENS_FACING_BACK
+
+private fun switchCamera() {
+    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+        CameraSelector.LENS_FACING_FRONT
+    } else {
+        CameraSelector.LENS_FACING_BACK
+    }
+    val front = lensFacing == CameraSelector.LENS_FACING_FRONT
+    // Overlay hình que + khung 3:4 của assistant.
+    aiAssistant.setFrontCameraActive(front)
+    // CompositionOverlayView (chấm trắng/vàng) do activity giữ nên phải tự set.
+    overlay.mirrorHorizontally = front
+    bindCameraUseCases()
+}
+```
+
+- Gọi `setFrontCameraActive` **mỗi lần** bind camera, kể cả lần đầu, để cờ không lệch với
+  `CameraSelector` thực tế.
+- Hai overlay tự lật điểm vẽ quanh trục giữa của vùng preview: `PoseOverlayView` lật khung 3:4,
+  `CompositionOverlayView` lật cả chấm trắng lẫn chấm vàng và map lại toạ độ khi chạm.
+- `SubjectTracker` không cần sửa: nó đọc khung phân tích (chưa mirror) và trả toạ độ chuẩn hoá theo
+  không gian camera.
+- Ảnh chụp bằng camera trước chỉ bị lật nếu bạn tự lật khi lưu; CameraX trả ảnh đúng chiều như cảm
+  biến ghi, không mirror.
+
 ---
 
 ## 4. `SubjectTracker.kt` — 1 chỗ sửa bắt buộc

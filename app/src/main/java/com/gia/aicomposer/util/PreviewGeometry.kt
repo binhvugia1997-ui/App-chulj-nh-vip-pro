@@ -38,6 +38,15 @@ object PreviewGeometry {
         )
     }
 
+    /**
+     * Lật một toạ độ chuẩn hoá quanh tâm 0.5 — dùng cho camera trước, vì preview đã bị lật ngang
+     * còn khung phân tích thì không.
+     */
+    fun mirrorX(x: Float): Float = 1f - x
+
+    /** Lật một toạ độ x **đã map sang view** quanh trục giữa của [content]. */
+    fun mirrorXInView(x: Float, content: RectF): Float = content.left + content.right - x
+
     fun rectToView(rect: RectF, content: RectF): RectF = RectF(
         content.left + rect.left * content.width(),
         content.top + rect.top * content.height(),

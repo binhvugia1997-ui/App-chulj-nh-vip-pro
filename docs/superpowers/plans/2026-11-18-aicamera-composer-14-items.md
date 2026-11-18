@@ -371,7 +371,7 @@ git commit -m "build: split apks per abi to shrink the install"
 - Consumes: `PreviewGeometry.toView/toNormalized`; `SubjectTracker` trả toạ độ chuẩn hoá từ khung phân tích (không bị mirror).
 - Produces: `PreviewGeometry.mirrorX(x: Float): Float` = `1f - x`; `PoseOverlayView.mirrorHorizontally: Boolean`; `CompositionOverlayView.mirrorHorizontally: Boolean`; `AiCameraAssistant.setFrontCameraActive(active: Boolean)`.
 
-- [ ] **Step 1: Viết test đỏ**
+- [x] **Step 1: Viết test đỏ** (xong 2026-11-18)
 
 `MirrorGeometryTest.kt`:
 ```kotlin
@@ -385,23 +385,26 @@ git commit -m "build: split apks per abi to shrink the install"
 }
 ```
 
-- [ ] **Step 2: Chạy test để thấy đỏ**
+- [x] **Step 2: Chạy test để thấy đỏ** (xong 2026-11-18)
 
 Run: `./gradlew :app:testDebugUnitTest --tests '*MirrorGeometryTest*' --no-daemon`
 Expected: FAIL `Unresolved reference: mirrorX`.
+Kết quả: `compileDebugUnitTestKotlin FAILED`, 4 lỗi `Unresolved reference: mirrorX` (exit 1).
 
-- [ ] **Step 3: Thêm `mirrorX` + cờ trên overlay**
+- [x] **Step 3: Thêm `mirrorX` + cờ trên overlay** (xong 2026-11-18)
 
 `PreviewGeometry.mirrorX` = `1f - x`. Hai overlay: khi `mirrorHorizontally` bật, đổi `x` của mọi điểm vẽ sang `PreviewGeometry.mirrorX(x)` **sau** khi đã map qua `contentRect` (tức mirror trong toạ độ view quanh `contentRect.centerX()`).
 
-- [ ] **Step 4: Nối vào assistant**
+- [x] **Step 4: Nối vào assistant** (xong 2026-11-18)
 
 `AiCameraAssistant.setFrontCameraActive(active)` set `mirrorHorizontally` cho cả hai overlay và ghi nhớ cờ; trong `analyzeFrame` khi gọi `legacyFrameTap` không đổi gì (SubjectTracker tự nhiên đọc khung chưa mirror; overlay đã mirror phần vẽ).
 
-- [ ] **Step 5: Chạy test + build**
+- [x] **Step 5: Chạy test + build** (xong 2026-11-18)
 
 Run: `./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon`
 Expected: toàn bộ test xanh (47 test cũ + `FocusGateTest` + `MirrorGeometryTest`), `BUILD SUCCESSFUL`.
+Kết quả: `BUILD SUCCESSFUL`, **54 test, 0 fail** (47 cũ + 5 `FocusGateTest` + 2 `MirrorGeometryTest`).
+APK: arm64 57.564.089 B, x86_64 62.871.024 B.
 
 - [ ] **Step 6: Commit**
 

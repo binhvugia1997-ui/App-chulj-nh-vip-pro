@@ -116,6 +116,16 @@ class PoseOverlayView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Camera trước: PreviewView tự lật ngang hình, còn khung phân tích thì không, nên mọi điểm vẽ
+     * phải lật lại quanh trục giữa của vùng nội dung.
+     */
+    var mirrorHorizontally: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (width <= 0 || height <= 0) return
@@ -130,10 +140,22 @@ class PoseOverlayView @JvmOverloads constructor(
             frameCenter.x + halfWidth,
             frameCenter.y + halfHeight,
         )
-        val frame = PreviewGeometry.rectToView(normalizedFrame, content)
+        val frame = PreviewGeometry.rectToView(normalizedFrame, content).let { rect ->
+            if (!mirrorHorizontally) {
+                rect
+            } else {
+                RectF(
+                    PreviewGeometry.mirrorXInView(rect.right, content),
+                    rect.top,
+                    PreviewGeometry.mirrorXInView(rect.left, content),
+                    rect.bottom,
+                )
+            }
+        }
 
         if (showFrame) drawGuideFrame(canvas, frame)
         if (showPose) pose?.let { drawStickFigure(canvas, it, frame) }
+        // Vòng tâm và tiến trình giữ đều đối xứng quanh giữa view nên không cần lật.
         if (showCenterTarget) drawCenterTarget(canvas)
     }
 

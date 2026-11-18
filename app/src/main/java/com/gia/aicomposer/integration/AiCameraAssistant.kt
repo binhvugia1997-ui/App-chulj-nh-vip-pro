@@ -135,6 +135,10 @@ class AiCameraAssistant(
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
 
+    /** Đang dùng camera trước (selfie) hay chưa. */
+    var frontCameraActive: Boolean = false
+        private set
+
     /** Cổng AF/AE: pipeline chỉ tự chụp khi ảnh đã nét và phơi sáng ổn định. */
     private val focusGate = FocusGate()
 
@@ -293,6 +297,15 @@ class AiCameraAssistant(
     /** Gọi sau `bindToLifecycle` để pipeline đọc được zoom ratio. */
     fun onCameraBound(boundCamera: Camera?) {
         camera = boundCamera
+    }
+
+    /**
+     * Báo assistant đang dùng camera trước. Overlay hình que sẽ lật ngang phần vẽ vì PreviewView
+     * tự lật hình còn khung phân tích thì không. Gọi lại mỗi lần đổi camera.
+     */
+    fun setFrontCameraActive(active: Boolean) {
+        frontCameraActive = active
+        overlay.mirrorHorizontally = active
     }
 
     /** Gọi sau khi bind thành công: pipeline chuyển từ "mở camera" sang "chờ ổn định". */
