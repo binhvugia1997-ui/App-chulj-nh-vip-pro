@@ -1,43 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <Button
-            android:id="@+id/back_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="12dp"
-            android:text="&lt; Quay lai" />
-
-        <TextView
-            android:id="@+id/empty_state"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:padding="24dp"
-            android:text="@string/gallery_empty"
-            android:textColor="@android:color/white"
-            android:textSize="15sp"
-            android:visibility="gone" />
+        android:paddingTop="60dp">
 
         <GridView
             android:id="@+id/photo_grid"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:horizontalSpacing="8dp"
             android:numColumns="3"
+            android:padding="10dp"
             android:stretchMode="columnWidth"
-            android:verticalSpacing="4dp"
-            android:horizontalSpacing="4dp"
-            android:padding="4dp" />
-    </LinearLayout>
+            android:verticalSpacing="8dp" />
 
+        <TextView
+            android:id="@+id/empty_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:drawableTop="@drawable/ic_empty_gallery"
+            android:drawablePadding="18dp"
+            android:gravity="center"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp"
+            android:text="@string/gallery_empty"
+            android:textColor="@color/on_surface_variant"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Ảnh xem full nằm trên lưới; thanh trên (mờ + nút) nằm trên ảnh. -->
     <ImageView
         android:id="@+id/full_photo"
         android:layout_width="match_parent"
@@ -46,27 +45,51 @@
         android:scaleType="fitCenter"
         android:visibility="gone" />
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="110dp"
+        android:layout_gravity="top"
+        android:background="@drawable/bg_scrim_top"
+        android:clickable="false"
+        android:focusable="false" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/back_button"
+        style="@style/Widget.AICamera.IconButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:contentDescription="@string/cd_back"
+        app:icon="@drawable/ic_arrow_back" />
+
     <LinearLayout
         android:id="@+id/photo_actions"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="24dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="10dp"
         android:orientation="horizontal"
         android:visibility="gone">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/share_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="12dp"
-            android:text="@string/gallery_share" />
+            style="@style/Widget.AICamera.IconButton"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:contentDescription="@string/gallery_share"
+            app:icon="@drawable/ic_share" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/delete_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/gallery_delete" />
+            style="@style/Widget.AICamera.IconButton"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@string/gallery_delete"
+            app:icon="@drawable/ic_delete" />
     </LinearLayout>
 
 </FrameLayout>

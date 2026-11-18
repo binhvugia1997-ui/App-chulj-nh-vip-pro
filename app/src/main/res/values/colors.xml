@@ -4,4 +4,30 @@
     <color name="white">#FFFFFFFF</color>
     <color name="scrim">#99000000</color>
     <color name="panel">#B3000000</color>
+
+    <!-- Bảng màu chung: primary xanh, accent vàng, nền tối như app chụp ảnh. -->
+    <color name="primary">#FF3D5AFE</color>
+    <color name="primary_dark">#FF1A237E</color>
+    <color name="accent">#FFFFD600</color>
+    <color name="ink">#FF11141A</color>
+
+    <color name="surface">#FF11141A</color>
+    <color name="surface_variant">#FF1A1E26</color>
+    <color name="on_surface">#FFEDEFF5</color>
+    <color name="on_surface_variant">#FFA8AFBF</color>
+    <color name="outline">#FF39404F</color>
+    <color name="divider">#1FFFFFFF</color>
+
+    <!-- Nút/khung mờ phủ trên preview. -->
+    <color name="control_scrim">#59000000</color>
+    <color name="control_stroke">#3DFFFFFF</color>
+    <color name="shutter_ring">#59FFFFFF</color>
+    <color name="ripple">#33FFFFFF</color>
+    <color name="thumb_placeholder">#FF1A1E26</color>
+
+    <!-- Chip gợi ý dáng. -->
+    <color name="chip_scrim">#33FFD600</color>
+    <color name="chip_stroke">#66FFD600</color>
+
+    <color name="dot_inactive">#FF39404F</color>
 </resources>

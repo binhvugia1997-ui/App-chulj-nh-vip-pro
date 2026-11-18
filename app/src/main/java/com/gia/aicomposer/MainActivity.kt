@@ -34,6 +34,11 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.exifinterface.media.ExifInterface
+import com.gia.aicomposer.integration.AiSettingsDialog
+import com.gia.aicomposer.integration.OnboardingDialog
+import com.gia.aicomposer.model.SceneState
+import com.gia.aicomposer.pose.PoseScorer
+import com.gia.aicomposer.settings.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,6 +74,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var galleryButton: Button
     private lateinit var autoButton: Button
     private lateinit var aspectButton: Button
+    private lateinit var switchCameraButton: Button
+    private lateinit var settingsButton: Button
+    private lateinit var poseButton: Button
+    private lateinit var poseChip: TextView
+
+    private val appSettings by lazy { AppSettings(this) }
+    private val poseScorer = PoseScorer()
+    private val recentPoses = ArrayDeque<String>()
+    private var cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
     private var imageCapture: ImageCapture? = null
     private var cameraProvider: ProcessCameraProvider? = null
@@ -111,6 +125,10 @@ class MainActivity : AppCompatActivity() {
         galleryButton = findViewById(R.id.gallery_button)
         autoButton = findViewById(R.id.auto_button)
         aspectButton = findViewById(R.id.aspect_button)
+        switchCameraButton = findViewById(R.id.switch_camera_button)
+        settingsButton = findViewById(R.id.settings_button)
+        poseButton = findViewById(R.id.pose_button)
+        poseChip = findViewById(R.id.pose_chip)
         analysisExecutor = Executors.newSingleThreadExecutor()
 
         overlay.onTargetMoved = { withinSinceMs = 0L }
@@ -130,8 +148,12 @@ class MainActivity : AppCompatActivity() {
             updateAspectButton()
             startCamera()
         }
+        switchCameraButton.setOnClickListener { toggleCamera() }
+        settingsButton.setOnClickListener { openSettings() }
+        poseButton.setOnClickListener { suggestPose() }
         updateAutoButton()
         updateAspectButton()
+        OnboardingDialog.showIfFirstRun(this, appSettings)
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
@@ -151,6 +173,53 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateAutoButton() {
         autoButton.text = if (autoCaptureEnabled) "Tu dong: BAT" else "Tu dong: TAT"
+        // Pill đổi màu vàng khi tự động đang bật (selector trong res/color/pill_tint.xml).
+        autoButton.isSelected = autoCaptureEnabled
+    }
+
+    /**
+     * Nút “Gợi ý dáng”: chọn dáng từ thư viện dáng offline rồi hiện tên + điểm trong chip.
+     * Không đụng tới ngưỡng căn khung / tự chụp của màn chụp.
+     */
+    private fun suggestPose() {
+        if (!appSettings.poseSuggestionsEnabled) {
+            Toast.makeText(this, R.string.guidance_pose_disabled, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val suggestion = poseScorer.suggest(SceneState.empty(), recentPoses.toList())
+        recentPoses.addLast(suggestion.pose.id)
+        while (recentPoses.size > PoseScorer.RECENT_MEMORY) recentPoses.removeFirst()
+        poseChip.text = getString(
+            R.string.suggest_result,
+            suggestion.pose.displayName,
+            suggestion.score,
+        )
+        poseChip.visibility = View.VISIBLE
+    }
+
+    /** Cài đặt kiểu Material: gợi ý dáng, tự chụp, độ trễ chụp. */
+    private fun openSettings() {
+        AiSettingsDialog.show(this, appSettings, autoCaptureEnabled) { autoCapture ->
+            autoCaptureEnabled = autoCapture
+            withinSinceMs = 0L
+            updateAutoButton()
+            setStatus(
+                if (autoCapture) "Tu dong chup: BAT" else "Che do tay - cham vang la chu the",
+            )
+        }
+    }
+
+    /** Đổi camera trước/sau; overlay lật ngang điểm chủ thể khi dùng camera trước. */
+    private fun toggleCamera() {
+        val toFront = cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA
+        cameraSelector = if (toFront) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
+        overlay.mirrorHorizontally = toFront
+        withinSinceMs = 0L
+        startCamera()
     }
 
     private fun updateAspectButton() {
@@ -200,15 +269,29 @@ class MainActivity : AppCompatActivity() {
         try {
             provider.bindToLifecycle(
                 this,
-                CameraSelector.DEFAULT_BACK_CAMERA,
+                cameraSelector,
                 preview,
                 imageCapture,
                 analysis
             )
-            setStatus("Di chuyen may de cham vang trung cham trang")
+            val front = cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA
+            setStatus(
+                if (front) {
+                    "Camera truoc - di chuyen may de cham vang trung cham trang"
+                } else {
+                    "Di chuyen may de cham vang trung cham trang"
+                },
+            )
         } catch (e: Exception) {
             Log.e(TAG, "bind failed", e)
-            Toast.makeText(this, "Khong mo duoc camera: ${e.message}", Toast.LENGTH_LONG).show()
+            if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
+                // Máy không có camera trước: quay lại camera sau thay vì kẹt màn hình đen.
+                cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                overlay.mirrorHorizontally = false
+                bindCameraUseCases()
+            } else {
+                Toast.makeText(this, "Khong mo duoc camera: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

@@ -29,6 +29,11 @@ class AppSettings(context: Context) {
             .putLong(KEY_CAPTURE_DELAY, value.coerceIn(MIN_CAPTURE_DELAY_MS, MAX_CAPTURE_DELAY_MS))
             .apply()
 
+    /** Đã xem onboarding lần đầu mở app chưa (mặc định false). */
+    var onboardingSeen: Boolean
+        get() = prefs.getBoolean(KEY_ONBOARDING_SEEN, false)
+        set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_SEEN, value).apply()
+
     companion object {
         const val DEFAULT_CAPTURE_DELAY_MS = 1_000L
         const val MIN_CAPTURE_DELAY_MS = 0L
@@ -38,5 +43,6 @@ class AppSettings(context: Context) {
         private const val KEY_POSE_SUGGESTIONS = "pose_suggestions_enabled"
         private const val KEY_AUTO_CAPTURE = "auto_capture_enabled"
         private const val KEY_CAPTURE_DELAY = "capture_delay_ms"
+        private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
     }
 }

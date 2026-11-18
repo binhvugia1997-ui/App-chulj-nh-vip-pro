@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Chuỗi dùng bởi package com.gia.aicomposer.integration + pipeline + overlay.
-  Chép nguyên file này vào app/src/main/res/values/ của app thật.
+  Chuỗi dùng bởi package com.gia.aicomposer.integration + pipeline + overlay,
+  cộng thêm các nhãn giao diện mới (nút icon, cài đặt, onboarding).
   Nếu app đã có string cùng tên thì xoá dòng đó ở đây (không để trùng tên giữa 2 file).
 -->
 <resources>
@@ -25,10 +25,14 @@
 
     <string name="settings_title">Cài đặt</string>
     <string name="settings_pose_suggestions">Bật gợi ý dáng</string>
+    <string name="settings_pose_hint">Hiện hình que và gợi ý dáng khi chụp</string>
     <string name="settings_auto_capture">Bật tự chụp khi căn chuẩn</string>
+    <string name="settings_auto_hint">Tự chụp khi khung đã trùng vòng tròn và máy đứng yên</string>
     <string name="settings_capture_delay">Độ trễ chụp</string>
+    <string name="settings_delay_hint">Thời gian giữ yên sau khi khung đã căn chuẩn</string>
     <string name="settings_delay_value">%1$.2f giây</string>
     <string name="settings_close">Đóng</string>
+    <string name="settings_cancel">Huỷ</string>
 
     <string name="suggest_result">%1$s • điểm %2$.1f</string>
     <string name="capture_saved">Đã lưu: %1$s</string>
@@ -38,4 +42,31 @@
     <string name="gallery_delete_confirm">Xoá ảnh này khỏi máy?</string>
     <string name="gallery_delete_failed">Không xoá được ảnh</string>
     <string name="gallery_cancel">Huỷ</string>
+
+    <!-- Nhãn cho nút icon (đọc màn hình) -->
+    <string name="cd_aspect_ratio">Đổi tỉ lệ khung hình</string>
+    <string name="cd_auto_capture">Bật hoặc tắt tự động chụp</string>
+    <string name="cd_gallery">Mở thư viện ảnh</string>
+    <string name="cd_shutter">Chụp ảnh</string>
+    <string name="cd_switch_camera">Đổi camera trước hoặc sau</string>
+    <string name="cd_settings">Mở cài đặt</string>
+    <string name="cd_pose_hint">Gợi ý dáng chụp</string>
+    <string name="cd_back">Quay lại</string>
+
+    <string name="pose_button_label">Gợi ý dáng</string>
+
+    <!-- Onboarding lần đầu mở app -->
+    <string name="onboarding_skip">Bỏ qua</string>
+    <string name="onboarding_next">Tiếp tục</string>
+    <string name="onboarding_start">Bắt đầu chụp</string>
+    <string name="onboarding_step">Bước %1$d/%2$d</string>
+    <string name="onboarding_title_1">Gợi ý dáng theo cảnh</string>
+    <string name="onboarding_body_1">Bấm “Gợi ý dáng” để app chọn dáng hợp với bối cảnh — hình que hiện trên khung để bạn bắt chước.</string>
+    <string name="onboarding_title_2">Căn khung vào vòng tròn</string>
+    <string name="onboarding_body_2">Chạm vào màn hình để đặt điểm mục tiêu, rồi di chuyển máy cho chấm vàng (chủ thể) vào vòng tròn.</string>
+    <string name="onboarding_title_3">Tự chụp khi đã căn chuẩn</string>
+    <string name="onboarding_body_3">Bật “Tự động” và giữ máy yên: khi khung trùng vòng tròn đủ lâu, app tự chụp và lưu ảnh vào Thư viện.</string>
+
+    <string name="camera_front">Camera trước</string>
+    <string name="camera_back">Camera sau</string>
 </resources>

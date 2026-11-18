@@ -34,18 +34,21 @@ class CompositionOverlayView @JvmOverloads constructor(
     /** Ti le khung hinh (rong/cao) cua luong preview, dung de tinh letterbox. */
     var previewAspectRatio: Float = 4f / 3f
 
+    /** Camera trước: preview bị lật ngang nên điểm chủ thể vẽ ngược lại. */
+    var mirrorHorizontally: Boolean = false
+
     var onTargetMoved: (() -> Unit)? = null
 
     private val gridPaint = Paint().apply {
         color = Color.WHITE
-        alpha = 130
-        strokeWidth = 2f
+        alpha = 60
+        strokeWidth = 1.5f
         style = Paint.Style.STROKE
     }
     private val targetPaint = Paint().apply {
         color = Color.WHITE
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = 4f
         isAntiAlias = true
     }
     private val targetDotPaint = Paint().apply {
@@ -53,21 +56,22 @@ class CompositionOverlayView @JvmOverloads constructor(
         style = Paint.Style.FILL
         isAntiAlias = true
     }
+    // Vàng accent của app cho chủ thể, xanh lá của overlay AI khi đã khoá khung.
     private val subjectPaint = Paint().apply {
-        color = Color.YELLOW
+        color = Color.parseColor("#FFD600")
         style = Paint.Style.FILL
         isAntiAlias = true
     }
     private val linePaint = Paint().apply {
-        color = Color.YELLOW
-        alpha = 170
-        strokeWidth = 3f
+        color = Color.parseColor("#FFD600")
+        alpha = 190
+        strokeWidth = 2.5f
         isAntiAlias = true
     }
     private val lockedPaint = Paint().apply {
-        color = Color.GREEN
+        color = Color.parseColor("#3DDC84")
         style = Paint.Style.STROKE
-        strokeWidth = 7f
+        strokeWidth = 6f
         isAntiAlias = true
     }
 
@@ -94,7 +98,8 @@ class CompositionOverlayView @JvmOverloads constructor(
     private fun toViewY(fy: Float, rect: FloatArray): Float = rect[1] + fy * (rect[3] - rect[1])
 
     fun distanceToTarget(): Float {
-        val dx = subjectPoint.first - targetPoint.first
+        val subjectX = if (mirrorHorizontally) 1f - subjectPoint.first else subjectPoint.first
+        val dx = subjectX - targetPoint.first
         val dy = subjectPoint.second - targetPoint.second
         return hypot(dx, dy)
     }
@@ -126,7 +131,8 @@ class CompositionOverlayView @JvmOverloads constructor(
         canvas.drawCircle(tx, ty, 10f, targetDotPaint)
 
         // Cham vang chu the + duong noi huong dan.
-        val sx = toViewX(subjectPoint.first, rect)
+        val subjectX = if (mirrorHorizontally) 1f - subjectPoint.first else subjectPoint.first
+        val sx = toViewX(subjectX, rect)
         val sy = toViewY(subjectPoint.second, rect)
         canvas.drawLine(sx, sy, tx, ty, linePaint)
         canvas.drawCircle(sx, sy, 22f, subjectPaint)

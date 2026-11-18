@@ -112,3 +112,31 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
 2. Build + test emulator (UI/overlay/tự chụp nhờ fallback 600 ms).
 3. Test máy thật: rung/ổn định, khóa khung khi xoay, tự chụp khi căn chuẩn.
 4. Nếu có lỗi build khi ghép: sửa trong workspace rồi build lại `./gradlew :app:assembleDebug`.
+
+## Giao diện mới (2026-11-18, nhánh `main` sau commit UI)
+- Theme đổi `Theme.AppCompat.DayNight.NoActionBar` → **`Theme.Material3.Dark.NoActionBar`** (tên theme giữ nguyên
+  `Theme.AICameraComposer`); bảng màu chung trong `res/values/colors.xml` (primary #3D5AFE, accent #FFD600,
+  surface #11141A, guide_accent #7C4DFF, guide_aligned #3DDC84), style dùng lại: `Widget.AICamera.PillButton`,
+  `Widget.AICamera.IconButton`.
+- Màn chụp (`activity_main.xml`): pill tỉ lệ khung + pill tự động (đổi vàng khi bật nhờ selector
+  `res/color/pill_tint.xml`), nút icon tròn đổi camera + cài đặt, `status_text` trong pill mờ, chip
+  `pose_chip` dưới câu hướng dẫn, nút chụp tròn vàng 68dp trong vòng ring, thư viện + “Gợi ý dáng” hai bên.
+  Scrim trên/dưới là View không clickable nên chạm đặt điểm mục tiêu vẫn xuống `overlay_view`.
+- `MainActivity` chỉ thêm nối dây cho view mới (không đổi id, không đổi luồng chụp/ngưỡng): `toggleCamera()`
+  (camera trước/sau, `CompositionOverlayView.mirrorHorizontally` lật điểm chủ thể), `openSettings()`
+  (`AiSettingsDialog` kiểu Material), `suggestPose()` (thư viện dáng offline `PoseScorer` + `SceneState.empty()`
+  → tên dáng + điểm trong chip), `OnboardingDialog.showIfFirstRun()`.
+- `AiSettingsDialog` viết lại: `dialog_ai_settings.xml` với `MaterialSwitch` có nhãn + mô tả, `Slider` 0–3 s
+  bước 0,25 s; mặc định giữ nguyên (gợi ý ON, tự chụp OFF, trễ 1,00 s); tham số `autoCapture` để màn chụp
+  truyền trạng thái tự động đang dùng.
+- `OnboardingDialog` (mới): 3 bước (gợi ý dáng → căn khung → tự chụp), chấm bước, nút “Bỏ qua”/“Tiếp tục”/
+  “Bắt đầu chụp”, cờ `AppSettings.onboardingSeen` (test `OnboardingFlagTest`).
+- Thư viện: lưới 3 cột cách đều 8dp, ô ảnh bo 14dp (`item_photo.xml` vẫn là root `ImageView` nên adapter cũ
+  chạy nguyên), nút back/share/delete thành icon tròn trên cùng (share/delete trong `photo_actions`),
+  trạng thái trống có icon + câu hướng dẫn.
+- Icon: 11 vector mới (`ic_aspect_ratio`, `ic_auto_awesome`, `ic_gallery`, `ic_settings`, `ic_camera_switch`,
+  `ic_pose`, `ic_camera`, `ic_arrow_back`, `ic_share`, `ic_delete`, `ic_empty_gallery`), mọi nút icon có
+  `contentDescription`.
+- **Chưa nối** `AiCameraAssistant` vào `MainActivity` (vẫn như trước): nút “Gợi ý dáng” hiện chỉ dùng thư viện
+  dáng offline, chưa vẽ hình que/khung 3:4 của module AI.
+- Chưa chụp được màn hình (VM không có emulator/KVM) — cần Gia xem lại bằng mắt trên máy thật.
