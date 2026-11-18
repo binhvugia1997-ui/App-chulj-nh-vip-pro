@@ -52,6 +52,12 @@ gradlew.bat assembleDebug
 
 APK debug o `app\build\outputs\apk\debug\app-debug.apk`.
 
+`abiFilters` giu `arm64-v8a` + `x86_64`: APK debug ~110.943.003 byte (105,8 MiB) khi dong ca 4 ABI
+xuong con 66.033.933 byte (-40,5%) voi `tasks-vision:0.10.14`. Sau khi nang len `tasks-vision:1.2.3`
+(dependency `tasks-core:1.2.3` co native x86_64 de chay tren emulator) APK debug la 87.167.096 byte;
+phan tang nam o `lib/x86_64` (+20,2 MB), `lib/arm64-v8a` chi +2,9 MB. Hai model trong `assets/` van
+duoc dong o dang khong nen (stored).
+
 Cai len dien thoai:
 
 ```bat
@@ -63,3 +69,5 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 - Chi build ban debug. Khong build release, khong ky release.
 - Chi dung camera sau o v0.1 (camera truoc se bi mirror, chua xu ly).
 - Anh luu dung MediaStore nen hien trong Thu vien cua may.
+- Anh cua pipeline AI di cung duong luu (`util/PhotoStore.kt`) nen cung hien trong
+  `GalleryActivity`; Android 8-9 luu o thu muc anh rieng cua app va duoc thu vien quet them.

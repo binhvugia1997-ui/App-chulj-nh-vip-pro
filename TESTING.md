@@ -7,7 +7,10 @@ Chuẩn bị chung (cả hai máy):
 
 - APK debug đã cài, đã cấp quyền camera; mở log: `adb logcat -s AiCameraAssistant FramingAnalyzer`.
 - Ghi lại giá trị mặc định: Cài đặt → *Bật gợi ý dáng* = ON, *Bật tự chụp* = OFF, *Độ trễ* = 1.00 s.
-- Ảnh lưu ở `Android/data/com.gia.aicomposer/files/Pictures/AICameraComposer/AIC_*.jpg`.
+- Ảnh lưu ở album `Pictures/AICameraComposer` trong MediaStore (Android 10+); Android 8-9 lưu ở
+  `Android/data/com.gia.aicomposer/files/Pictures/AICameraComposer/`. Tên `AIC_*.jpg`.
+- Ảnh chụp tay (`MainActivity`) và ảnh pipeline AI dùng chung đường lưu này (`util/PhotoStore.kt`) —
+  nhờ vậy cả hai đều hiện trong Thư viện.
 - Quy ước: **treo** = một bước guidance đứng yên > 5 s mà không tự chuyển bước.
 
 ---
@@ -32,10 +35,10 @@ Chuẩn bị chung (cả hai máy):
 > Emulator không có gyro/gia tốc: `StabilityMonitor` báo “không cảm biến” và pipeline coi như yên sau
 > 600 ms — đây là hành vi đúng, không phải lỗi. Các mục D1–D5 vì vậy bắt buộc chạy trên máy thật.
 >
-> **Emulator `x86_64`:** `tasks-vision:0.10.14` không có `.so` cho `x86_64`, nên MediaPipe không nạp
-> được (log `EfficientDet Lite0 unavailable` / `pose landmarker unavailable`). Khi đó E3 luôn ra dáng
-> mặc định và khung lấy theo ML Kit Face/saliency — **đúng thiết kế fallback**, không tính ❌.
-> Muốn test MediaPipe trên emulator: dùng image `x86` (32-bit) và thêm `"x86"` vào `abiFilters`.
+> **Emulator `x86_64`:** từ `tasks-vision:1.2.3` native x86_64 có trong `tasks-core:1.2.3`, nên
+> MediaPipe **nạp được** trên emulator và E2/E3 là mục bắt buộc — không còn được tính là fallback.
+> Nếu log vẫn báo `EfficientDet Lite0 unavailable` / `pose landmarker unavailable` thì đó là lỗi
+> tương thích model của 1.2.3: ghi ❌ và xem `docs/reports/2026-11-18-mediapipe-abis.md`.
 
 ---
 
@@ -57,15 +60,31 @@ Chuẩn bị chung (cả hai máy):
 
 ---
 
-## 3. Kết luận
+## 3. Thư viện ảnh (GalleryActivity + PhotoStore)
 
-- **Đạt để giao**: E1–E12 đều đạt **và** D1–D8 đạt; D9–D11 là bắt buộc nếu máy test có khoá màn hình /
+| Mã | Việc làm | Đạt khi | Không đạt khi |
+|---|---|---|---|
+| **G1** Ảnh chụp tay | Bấm **CHUP**, rồi mở **Thu viện** | Ảnh vừa chụp ở ô đầu tiên; chạm vào mở full màn hình, chạm lần nữa đóng | Không thấy ảnh, lưới trống, hoặc mở ảnh bị crash/OOM |
+| **G2** Ảnh pipeline AI | Bật **Tự chụp**, đợi chụp xong, quay lại app rồi mở **Thu viện** | Ảnh tự chụp có mặt ngay (không cần khởi động lại app); **không** có ảnh “nửa vời”/ô trống | Ảnh tự chụp chỉ nằm trong `Android/data/...`, không thấy trong thư viện |
+| **G3** Nạp lại khi quay về | Đang ở Thư viện, bấm Home → chụp thêm 1 ảnh bằng app khác có tên `AIC_`… → quay lại Thư viện | Danh sách tự nạp lại trong `onResume`, thấy ảnh mới | Phải tắt/mở lại activity mới thấy |
+| **G4** Ảnh 1:1 và xoay | Chụp chế độ **1:1** cầm dọc, mở trong Thư viện | Ảnh vuông, đúng chiều (xoay EXIF được áp dụng), không méo | Ảnh sai chiều 90°, crop lệch tâm, ảnh bị bóp méo |
+| **G5** Android 8-9 + thư viện rỗng | Chạy trên API 26-28, cấp `READ_EXTERNAL_STORAGE`; sau đó xoá app data rồi mở Thư viện | Có ảnh trong thư mục app; sau khi xoá data hiện “Chưa có ảnh nào — chụp một tấm trước”, không crash | Hỏi quyền rồi vẫn trống, hoặc crash khi thư mục rỗng |
+
+> Kiểm tra nhanh bằng adb:
+> `adb shell content query --uri content://media/external/images/media --projection _display_name:relative_path --where "_display_name LIKE 'AIC_%'"`
+
+---
+
+## 4. Kết luận
+
+- **Đạt để giao**: E1–E12 đều đạt, G1–G5 đạt **và** D1–D8 đạt; D9–D11 là bắt buộc nếu máy test có khoá màn hình /
   cảnh tối / thiếu gyro.
 - Ghi lại máy + Android version khi test, vì ngưỡng cảm biến và chất lượng ảnh phụ thuộc thiết bị:
 
   ```
   Thiết bị: …   Android: …   Ngày: …
   E1 ☐ E2 ☐ E3 ☐ E4 ☐ E5 ☐ E6 ☐ E7 ☐ E8 ☐ E9 ☐ E10 ☐ E11 ☐ E12 ☐
+  G1 ☐ G2 ☐ G3 ☐ G4 ☐ G5 ☐
   D1 ☐ D2 ☐ D3 ☐ D4 ☐ D5 ☐ D6 ☐ D7 ☐ D8 ☐ D9 ☐ D10 ☐ D11 ☐
   ```
 - Mục nào ❌ thì gửi kèm: bước đang ở (guidance), `adb logcat -s AiCameraAssistant`, và ảnh chụp

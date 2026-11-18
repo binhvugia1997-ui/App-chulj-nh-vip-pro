@@ -1,473 +1,679 @@
-# Ghép tính năng AI vào AICameraComposer hiện có
+# Ghép module AI + thư viện ảnh vào project thật
 
-Mục tiêu: **không viết lại `MainActivity.kt`**. Toàn bộ tính năng mới nằm trong package
-`com.gia.aicomposer.integration` (3 file) + các module thuần (pose/vision/pipeline/overlay/settings/util).
-Activity cũ chỉ thêm ~6 đoạn nối dây, code camera/gallery của bạn giữ nguyên.
-
-> **Trạng thái repo của bạn (đã kiểm tra):** fetch nhánh `main` của
-> `github.com/binhvugia1997-ui/App-chulj-nh-vip-pro` hiện chỉ có `README.md`
-> (1 commit `Initial commit`), chưa có `MainActivity.kt`/`SubjectTracker.kt` nào được push.
-> Vì vậy mục 3 là diff theo **mốc** (anchor), không phải diff theo số dòng trên file thật.
-> Muốn diff chính xác từng dòng: dán `MainActivity.kt` hiện có vào chat (hoặc push lên repo) —
-> mình sẽ trả về patch đúng file của bạn.
+Tài liệu này là hướng dẫn merge **từng file/thư mục** trong workspace này vào project thật ở
+`https://github.com/binhvugia1997-ui/App-chulj-nh-vip-pro` (nhánh `main`), kèm các bước thêm
+dependency/assets và **chỉ rõ chỗ phải sửa** trong `MainActivity.kt`, `SubjectTracker.kt`,
+`CompositionOverlayView.kt` để hành vi cũ (chấm vàng/chấm trắng, tự chụp heuristic, thư viện ảnh)
+không đổi.
 
 ---
 
-## 0. Kiến trúc nối dây
+## 0. Trạng thái repo thật (đã kiểm tra lại)
+
+`main` hiện ở commit `c9c7cc8` *"Merge remote v0.1 project with AI camera pipeline module"* và **đã có**
+app v0.1 + module AI:
 
 ```
-MainActivity (của bạn)                     integration/AiCameraAssistant   (điểm nối duy nhất)
-├── Preview + ImageCapture + bindToLifecycle ──► imageAnalysis (use case do assistant tạo)
-├── previewContainer (FrameLayout)          ──► overlay (PoseOverlayView tự thêm vào)
-└── 3 nút + switch + onStart/Stop/Destroy   ◄── Listener: guidance, pose, auto-capture, saved
+app/src/main/java/com/gia/aicomposer/
+├── MainActivity.kt              ← app v0.1: camera, chấm vàng/trắng, tự chụp heuristic, nút Thư viện
+├── SubjectTracker.kt            ← heuristic độ sáng (Y plane), EMA
+├── CompositionOverlayView.kt    ← lưới 1/3 + chấm trắng + chấm vàng, chạm đổi điểm mục tiêu
+├── GalleryActivity.kt           ← thư viện ảnh (MediaStore)
+├── integration/                 ← 3 file nối dây AI
+├── pose/ model/ vision/ pipeline/ overlay/ settings/ util/
+app/src/main/assets/             ← efficientdet_lite0.tflite (13,8 MB) + pose_landmarker_lite.task (5,5 MB)
 ```
 
-- Assistant sở hữu: overlay, EfficientDet (cảnh), ML Kit Face + Pose Landmarker (khung 3:4),
-  cảm biến ổn định, khóa khung theo máy, pipeline 9 bước, hộp thoại cài đặt.
-- Assistant **không** bind CameraX: bạn bind, assistant chỉ nhận `ImageCapture` + `Camera` để đọc zoom.
-- `AiSettingsDialog` dựng UI bằng code → **không cần viewBinding, không cần theme Material**.
-- Overlay là `View` phủ trên preview → không vào ảnh chụp.
+Nghĩa là "project thật" cần merge **chính là bản v0.1 này**. Mọi đoạn diff dưới đây được viết theo
+đúng nội dung file trong repo (không phải diff theo "mốc" chung chung), nên đối chiếu được từng dòng.
+Nếu máy Windows của bạn (`D:\AICameraComposer`) đang khác repo, hãy so file ở mục 1 trước.
 
----
+**Đợt này workspace thêm/sửa so với `main`:**
 
-## 1. Danh sách file cần chép
-
-Chép từ workspace này sang `D:\AICameraComposer` (giữ đúng đường dẫn).
-
-### 1.1 Bắt buộc (code tính năng)
-
-| File / thư mục nguồn | Đích trong app của bạn |
+| File | Thay đổi |
 |---|---|
-| `app/src/main/java/com/gia/aicomposer/integration/AiCameraAssistant.kt` | `app/src/main/java/com/gia/aicomposer/integration/` |
-| `app/src/main/java/com/gia/aicomposer/integration/AiOverlayHost.kt` | nt |
-| `app/src/main/java/com/gia/aicomposer/integration/AiSettingsDialog.kt` | nt |
-| `app/src/main/java/com/gia/aicomposer/pose/` (PoseTemplate, PoseLibrary, PoseScorer) | `.../aicomposer/pose/` |
-| `app/src/main/java/com/gia/aicomposer/model/SceneState.kt` | `.../aicomposer/model/` |
-| `app/src/main/java/com/gia/aicomposer/vision/` (SceneAnalyzer, SceneBuilder, FreeRegionFinder, FramingAnalyzer, SaliencyFinder) | `.../aicomposer/vision/` |
-| `app/src/main/java/com/gia/aicomposer/pipeline/` (StabilityMonitor, DeviceOrientation, FrameLockTracker, CapturePipeline) | `.../aicomposer/pipeline/` |
-| `app/src/main/java/com/gia/aicomposer/overlay/PoseOverlayView.kt` | `.../aicomposer/overlay/` |
-| `app/src/main/java/com/gia/aicomposer/settings/AppSettings.kt` | `.../aicomposer/settings/` |
-| `app/src/main/java/com/gia/aicomposer/util/PreviewGeometry.kt` | `.../aicomposer/util/` |
-| `app/src/main/java/com/gia/aicomposer/util/ImageConversions.kt` | nt |
-| `app/src/main/assets/efficientdet_lite0.tflite` | `app/src/main/assets/` (13.8 MB) |
-| `app/src/main/assets/pose_landmarker_lite.task` | `app/src/main/assets/` (5.6 MB) |
-| `app/src/main/res/values/ai_strings.xml` | `app/src/main/res/values/` |
-| `app/src/main/res/values/ai_colors.xml` | `app/src/main/res/values/` |
+| `util/PhotoStore.kt` | **mới** — một chỗ duy nhất quyết định ảnh lưu ở đâu, dùng chung cho chụp tay và pipeline AI |
+| `integration/AiCameraAssistant.kt` | chụp qua `PhotoStore` (MediaStore) thay vì thư mục riêng của app; thêm `legacyFrameTap` để chạy `SubjectTracker` trên cùng `ImageAnalysis` |
+| `SubjectTracker.kt` | đọc được cả Y plane (YUV) và RGBA_8888, giữ nguyên thuật toán/EMA/kết quả với YUV |
+| `GalleryActivity.kt` | xin quyền đọc (API 26-28), đọc MediaStore + thư mục app, nạp lại ở `onResume`, thumbnail/decode có lấy mẫu, trạng thái rỗng |
+| `res/layout/activity_gallery.xml` | thêm `TextView @+id/empty_state` |
+| `res/values/strings.xml` | thêm `gallery_empty` |
+| `app/build.gradle.kts` | `abiFilters = arm64-v8a + x86_64` (đã có trong repo) — số đo mới ở mục 8 |
 
-### 1.2 Chỉ để tham khảo — KHÔNG chép đè
+---
 
-- `app/src/main/java/com/gia/aicomposer/MainActivity.kt` — bản mẫu nối dây tối thiểu; app của bạn đã có
-  `MainActivity` riêng (camera + gallery + `SubjectTracker`). Chỉ dán các đoạn ở mục 3.
-- `app/src/main/res/layout/activity_main.xml` — layout demo; chỉ cần ý tưởng `FrameLayout` bọc `PreviewView`.
-- `res/values/strings.xml`, `res/values/colors.xml`, `res/values/themes.xml`, `res/drawable/ic_app_icon.xml`,
-  `app/build.gradle.kts`, `AndroidManifest.xml` — cấu hình demo.
+## 0.5 Cách nhanh: áp patch thay vì chép tay
 
-### 1.3 Lệnh chép nhanh (PowerShell, chạy tại thư mục workspace này)
+`docs/merge/ai-module.patch` là diff của toàn bộ module AI so với commit `c9c7cc8`: 26 file,
+106.402 byte, **không chứa `MainActivity.kt`** (file đó vẫn sửa theo mục 3). Áp trên cây sạch ở
+đúng commit nền:
+
+```bash
+git switch -c ai-module c9c7cc8
+git apply --check docs/merge/ai-module.patch   # phải không in gì (exit 0)
+git apply docs/merge/ai-module.patch
+```
+
+Sau khi áp: `git status --short` thấy 20 file sửa + `util/PhotoStore.kt` + `app/src/test/`,
+rồi `./gradlew :app:testDebugUnitTest :app:assembleDebug` phải xanh. Patch đã gồm
+`app/build.gradle.kts` (`abiFilters`, `noCompress`, `tasks-vision:1.2.3`, ML Kit, JUnit/Robolectric)
+và 5 file test, nên mục 2.1 chỉ còn để tham chiếu từng dòng.
+
+## 1. Bảng file/thư mục: chép mới, ghi đè, hay giữ nguyên
+
+Chạy tại thư mục workspace này. Đích giả định: `D:\AICameraComposer` (đổi theo máy bạn).
+
+### 1.1 Chép mới (project thật chưa có)
+
+| Nguồn | Đích | Ghi chú |
+|---|---|---|
+| `app/src/main/java/com/gia/aicomposer/integration/AiCameraAssistant.kt` | `.../aicomposer/integration/` | điểm nối duy nhất |
+| `app/src/main/java/com/gia/aicomposer/integration/AiOverlayHost.kt` | nt | tự bọc `PreviewView` trong `FrameLayout` |
+| `app/src/main/java/com/gia/aicomposer/integration/AiSettingsDialog.kt` | nt | dialog dựng bằng code, không cần viewBinding |
+| `app/src/main/java/com/gia/aicomposer/pose/` (3 file) | `.../aicomposer/pose/` | `PoseTemplate`, `PoseLibrary` (30 dáng), `PoseScorer` |
+| `app/src/main/java/com/gia/aicomposer/model/SceneState.kt` | `.../aicomposer/model/` | |
+| `app/src/main/java/com/gia/aicomposer/vision/` (5 file) | `.../aicomposer/vision/` | `SceneAnalyzer`, `SceneBuilder`, `FramingAnalyzer`, `FreeRegionFinder`, `SaliencyFinder` |
+| `app/src/main/java/com/gia/aicomposer/pipeline/` (4 file) | `.../aicomposer/pipeline/` | `StabilityMonitor`, `DeviceOrientation`, `FrameLockTracker`, `CapturePipeline` |
+| `app/src/main/java/com/gia/aicomposer/overlay/PoseOverlayView.kt` | `.../aicomposer/overlay/` | overlay hình que + khung 3:4 + vòng tâm |
+| `app/src/main/java/com/gia/aicomposer/settings/AppSettings.kt` | `.../aicomposer/settings/` | SharedPreferences |
+| `app/src/main/java/com/gia/aicomposer/util/PreviewGeometry.kt` | `.../aicomposer/util/` | |
+| `app/src/main/java/com/gia/aicomposer/util/ImageConversions.kt` | nt | RGBA → Bitmap |
+| `app/src/main/java/com/gia/aicomposer/util/PhotoStore.kt` | nt | **mới**: MediaStore + fallback, dùng cho gallery |
+| `app/src/main/assets/efficientdet_lite0.tflite` | `app/src/main/assets/` | 13.836.895 byte, **không nén** |
+| `app/src/main/assets/pose_landmarker_lite.task` | nt | 5.777.746 byte, **không nén** |
+| `app/src/main/res/values/ai_strings.xml` | `app/src/main/res/values/` | chuỗi của overlay/pipeline/cài đặt |
+| `app/src/main/res/values/ai_colors.xml` | nt | `guide_accent`, `guide_accent_aligned` |
+
+### 1.2 Ghi đè / merge có kiểm soát (project thật đã có)
+
+| File | Cách làm |
+|---|---|
+| `GalleryActivity.kt` | **ghi đè** bằng bản trong workspace: bản cũ chỉ đọc MediaStore và không xin quyền, nên ảnh của pipeline AI (và ảnh trên API 26-28) không hiện |
+| `integration/AiCameraAssistant.kt` | nếu bạn đã chép bản trước đó, ghi đè (có `PhotoStore` + `legacyFrameTap`) |
+| `SubjectTracker.kt` | **sửa 1 chỗ** (mục 4) — bắt buộc nếu dùng chung `ImageAnalysis` RGBA của assistant |
+| `MainActivity.kt` | **7 mốc** (mục 3), không viết lại cả file |
+| `res/layout/activity_gallery.xml` | thêm `TextView @+id/empty_state` (mục 6.3), giữ `GridView`/`ImageView`/`Button` cũ |
+| `res/values/strings.xml` | thêm 1 dòng `gallery_empty` (mục 6.3) — **không** ghi đè cả file |
+| `app/build.gradle.kts` | thêm `noCompress`, `abiFilters`, 2 dependency (mục 2) |
+| `AndroidManifest.xml` | đã có `GalleryActivity` + 3 quyền; chỉ kiểm tra lại (mục 6.2) |
+
+### 1.3 Giữ nguyên, **không** chép từ workspace
+
+- `CompositionOverlayView.kt` và `res/layout/activity_main.xml` — overlay cũ vẫn dùng (mục 5).
+- `MainActivity.kt` trong workspace — chỉ là app v0.1 tham chiếu; nguồn sửa là file của bạn.
+- `res/values/themes.xml`, `colors.xml`, `drawable/*` — cấu hình demo.
+- `app/build.gradle.kts`, `AndroidManifest.xml` — không chép đè, chỉ áp diff ở mục 2/6.2.
+- `GalleryActivity.kt` bản cũ trong repo — thay bằng bản mới, đừng giữ cả hai.
+
+### 1.4 Lệnh chép (PowerShell, chạy trong workspace)
 
 ```powershell
 $src = ".\app\src\main"
 $dst = "D:\AICameraComposer\app\src\main"
 
+# code module AI
 New-Item -ItemType Directory -Force "$dst\java\com\gia\aicomposer\integration" | Out-Null
 Copy-Item "$src\java\com\gia\aicomposer\integration\*.kt" "$dst\java\com\gia\aicomposer\integration\" -Force
 foreach ($p in @("pose","model","vision","pipeline","overlay","settings","util")) {
     New-Item -ItemType Directory -Force "$dst\java\com\gia\aicomposer\$p" | Out-Null
     Copy-Item "$src\java\com\gia\aicomposer\$p\*.kt" "$dst\java\com\gia\aicomposer\$p\" -Force
 }
+
+# thư viện ảnh (bản mới)
+Copy-Item "$src\java\com\gia\aicomposer\GalleryActivity.kt" "$dst\java\com\gia\aicomposer\" -Force
+Copy-Item "$src\res\layout\activity_gallery.xml" "$dst\res\layout\" -Force
+Copy-Item "$src\res\layout\item_photo.xml" "$dst\res\layout\" -Force
+
+# model + resources
 New-Item -ItemType Directory -Force "$dst\assets" | Out-Null
 Copy-Item "$src\assets\*.tflite","$src\assets\*.task" "$dst\assets\" -Force
 Copy-Item "$src\res\values\ai_strings.xml","$src\res\values\ai_colors.xml" "$dst\res\values\" -Force
 ```
 
-> Nếu `ai_strings.xml` / `ai_colors.xml` báo trùng resource với file bạn đang có, xoá các dòng trùng
-> trong `ai_strings.xml` / `ai_colors.xml` (Android không cho 2 định nghĩa cùng tên).
+> `ai_strings.xml` / `ai_colors.xml`: nếu app bạn đã có resource **cùng tên**, xoá dòng trùng trong
+> file `ai_*` (Android không cho 2 định nghĩa cùng tên). Đừng xoá dòng trong file gốc của app.
 
 ---
 
-## 2. Sửa `app/build.gradle.kts` (3 chỗ)
+## 2. Dependency, assets và gradle
+
+### 2.1 `app/build.gradle.kts`
 
 ```diff
  android {
      ...
      compileSdk = 34
-+
-+    androidResources {
-+        // MediaPipe đọc thẳng .tflite / .task từ assets -> phải để nguyên, không nén.
-+        noCompress += listOf("tflite", "task")
-+    }
- +
-+    defaultConfig {
-+        // MediaPipe/ML Kit ship .so cho 4 ABI (~77 MB thô). Giữ arm64-v8a (máy thật)
-+        // và x86_64 (emulator); bỏ x86 + armeabi-v7a -> APK giảm ~45 MB.
+
+     defaultConfig {
+         ...
++        // MediaPipe/ML Kit phát hành .so cho 4 ABI (~73 MB thô trong APK).
++        // Giữ arm64-v8a (máy thật) + x86_64 (emulator), bỏ x86 + armeabi-v7a.
 +        ndk {
 +            abiFilters += listOf("arm64-v8a", "x86_64")
 +        }
+     }
+
++    androidResources {
++        // MediaPipe đọc thẳng .tflite/.task từ assets -> phải để nguyên, không nén.
++        noCompress += listOf("tflite", "task")
 +    }
++
+     packaging {
+         resources {
+-            excludes += ...
++            excludes += listOf(
++                "META-INF/AL2.0",
++                "META-INF/LGPL2.1",
++                "META-INF/*.kotlin_module",
++            )
+         }
+     }
  }
 
  dependencies {
-     // ... các dependency hiện có của bạn (CameraX, Material, ...)
-+
-+    // Object detection (EfficientDet Lite0) + pose landmarker, model bundle trong assets.
-+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
-+
-+    // Face detection cho bước tìm khung (ưu tiên mặt).
+     // ... giữ nguyên dependency của bạn ...
++    // EfficientDet Lite0 (cảnh) + Pose Landmarker (khung 3:4). Model nằm trong assets.
++    implementation("com.google.mediapipe:tasks-vision:1.2.3")
++    // Face detection cho bước tìm khung (ưu tiên 1).
 +    implementation("com.google.mlkit:face-detection:16.1.6")
  }
 ```
 
-Không cần bật `viewBinding` cho phần AI. Bắt buộc đã có `androidx.camera:camera-view` (cho `PreviewView`).
+Bắt buộc đã có sẵn (app v0.1 trong repo đã có): `androidx.camera:camera-{core,camera2,lifecycle,view}:1.3.4`,
+`androidx.exifinterface:exifinterface` (GalleryActivity mới dùng để xoay ảnh theo EXIF),
+`androidx.appcompat`, `androidx.activity:activity-ktx` (cho `registerForActivityResult`).
 
-> **Lưu ý ABI:** `tasks-vision:0.10.14` **không** phát hành `.so` cho `x86_64` (chỉ arm64-v8a,
-> armeabi-v7a, x86). Trên emulator `x86_64`, `SceneAnalyzer`/`FramingAnalyzer` tự bắt `Throwable` lúc
-> tạo detector nên app vẫn chạy: gợi ý dáng dùng thư viện mẫu, tìm khung dùng ML Kit Face + saliency.
-> Muốn MediaPipe chạy trên emulator: dùng image `x86` (32-bit) và thêm `"x86"` vào `abiFilters`
-> (APK +~31 MB). Đo thực tế trong workspace: 110.974.312 → 66.028.099 byte (−44,9 MB).
+Không cần bật `viewBinding` cho module AI (`AiSettingsDialog` dựng UI bằng code).
 
-### Manifest (tuỳ chọn nhưng nên thêm)
+### 2.2 Assets
 
-Cảm biến không bắt buộc để app vẫn cài được trên máy/emulator thiếu gyro:
+- Chép nguyên 2 file vào `app/src/main/assets/` (giữ đúng tên, không đổi thư mục con):
+  `efficientdet_lite0.tflite` (13,8 MB), `pose_landmarker_lite.task` (5,5 MB).
+- Bắt buộc có `noCompress += listOf("tflite", "task")`, nếu không MediaPipe sẽ đọc sai/lỗi.
+- Code mở model bằng đường dẫn tương đối trong assets (`efficientdet_lite0.tflite`,
+  `pose_landmarker_lite.task`) — đổi tên file thì phải sửa `SceneAnalyzer`/`FramingAnalyzer`.
+- Không có model thì app **vẫn chạy**: `SceneAnalyzer.initialize()` trả `false`, gợi ý dáng dùng thư
+  viện mẫu, tìm khung fallback về ML Kit Face → saliency → giữa.
 
-```diff
-     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
-+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
-+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
-```
+### 2.3 Ghi chú ABI
+
+`tasks-vision:1.2.3` không chứa `jni/` trong AAR; native nằm ở dependency
+`com.google.mediapipe:tasks-core:1.2.3`, và bản này **có `x86_64`** (0.10.14 thì không: chỉ
+`arm64-v8a`, `armeabi-v7a`, `x86`). Vì vậy MediaPipe nạp được trên emulator `x86_64`.
+Đổi lại APK debug tăng 66.033.933 → 87.167.096 byte, trong đó +20,2 MB là riêng `lib/x86_64`
+(`libmediapipe_tasks_jni.so` 19,8 MB) còn `lib/arm64-v8a` chỉ +2,9 MB. Khi bật ABI splits mỗi máy
+chỉ tải phần của mình. Số đo đầy đủ: `docs/reports/2026-11-18-mediapipe-abis.md`.
 
 ---
 
-## 3. Diff từng bước cho `MainActivity.kt` hiện có
+## 3. `MainActivity.kt` — 7 mốc phải sửa (theo đúng file trong repo)
 
-> Vì mình không đọc được file của bạn, diff dùng **mốc (anchor)** thay vì số dòng. Mỗi bước độc lập,
-> dán đúng chỗ ghi trong tiêu đề. Tên biến `binding`, `previewView`, `imageCapture` — đổi theo app bạn.
+Mục tiêu: giữ nguyên toàn bộ hành vi cũ (chấm trắng/vàng, tự chụp heuristic 0.08 / 600 ms, đổi tỉ lệ,
+chụp 1:1, nút Thư viện) và chỉ **thêm** phần nối dây AI.
 
-### 3.0 Toàn bộ đoạn nối dây trong một khối (copy-paste)
-
-Đây là **toàn bộ** phần AI trong activity — nếu dán nguyên khối này vào một Activity rỗng thì app
-chạy được. `MainActivity.kt` trong workspace là bản mẫu tương đương nhưng dùng `viewBinding`
-(`binding.previewView`, `binding.previewContainer`) — cùng logic, khác cách lấy view.
-
-```kotlin
-class MainActivity : AppCompatActivity(), AiCameraAssistant.Listener {
-
-    private lateinit var previewView: PreviewView        // PreviewView có sẵn của bạn
-    private lateinit var assistant: AiCameraAssistant
-    private lateinit var imageCapture: ImageCapture
-    private var syncingAutoCapture = false
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)           // giữ nguyên của bạn
-        previewView = findViewById(R.id.previewView)     // đổi id nếu khác
-
-        // (1) tạo assistant: tự bọc PreviewView trong FrameLayout nếu layout chưa có
-        assistant = AiCameraAssistant(this, previewView)
-        assistant.listener = this
-
-        // (2) nối nút/switch của bạn
-        findViewById<View>(R.id.btnSuggestPose).setOnClickListener { assistant.suggestPose() }
-        findViewById<View>(R.id.btnCapture).setOnClickListener { assistant.captureNow() }
-        findViewById<View>(R.id.btnSettings).setOnClickListener { assistant.showSettingsDialog() }
-        findViewById<CompoundButton>(R.id.switchAutoCapture).apply {
-            isChecked = assistant.settings.autoCaptureEnabled
-            setOnCheckedChangeListener { _, checked ->
-                if (syncingAutoCapture) return@setOnCheckedChangeListener
-                assistant.setAutoCaptureEnabled(checked)
-            }
-        }
-
-        startCamera()                                    // hàm camera cũ của bạn
-    }
-
-    // (3) camera: giữ nguyên code cũ, chỉ thêm assistant.imageAnalysis vào bind
-    private fun startCamera() {
-        val future = ProcessCameraProvider.getInstance(this)
-        future.addListener({
-            val provider = future.get()
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
-            }
-            imageCapture = ImageCapture.Builder()
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                .build()
-            assistant.setImageCapture(imageCapture)
-
-            provider.unbindAll()
-            val camera: Camera = provider.bindToLifecycle(
-                this,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                imageCapture,
-                assistant.imageAnalysis,             // use case phân tích của assistant
-            )
-            assistant.onCameraBound(camera)          // để đọc zoom ratio
-            assistant.onCameraOpened()               // pipeline chạy tiếp
-        }, ContextCompat.getMainExecutor(this))
-    }
-
-    // (4) vòng đời
-    override fun onStart() { super.onStart(); assistant.start() }
-    override fun onStop() { assistant.stop(); super.onStop() }
-    override fun onDestroy() { assistant.release(); super.onDestroy() }
-
-    // (5) nhận trạng thái — override cái bạn cần
-    override fun onGuidance(text: String) { tvGuidance.text = text }
-
-    override fun onPoseSuggested(suggestion: PoseSuggestion, scene: SceneState) {
-        tvPoseName.text = getString(R.string.suggest_result, suggestion.pose.displayName, suggestion.score)
-    }
-
-    override fun onAutoCaptureChanged(enabled: Boolean) {
-        syncingAutoCapture = true
-        switchAutoCapture.isChecked = enabled
-        syncingAutoCapture = false
-    }
-
-    override fun onCaptureSaved(uri: Uri) { /* uri trỏ tới file JPG vừa lưu */ }
-    override fun onCaptureFailed(message: String?) { /* toast nếu muốn */ }
-}
-```
-
-Các bước 3.1–3.7 dưới đây là bản tách nhỏ của đúng khối này, để bạn dán vào file đang có thay vì
-thay cả class.
-
-### Bước 3.1 — khai báo + import
+### 3.1 Import + khai báo class
 
 ```diff
  package com.gia.aicomposer
-+
+
+ import android.Manifest
+ import android.content.ContentValues
+ import android.content.Intent
+ import android.content.pm.PackageManager
+ import android.graphics.Bitmap
+ import android.graphics.BitmapFactory
+ import android.graphics.Matrix
 +import android.net.Uri
+ import android.os.Build
+ import android.os.Bundle
+ import android.os.SystemClock
+ import android.provider.MediaStore
+ import android.util.Log
+ import android.util.Size
+ import android.widget.Button
+ import android.widget.TextView
+ import android.widget.Toast
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.camera.core.AspectRatio
 +import androidx.camera.core.Camera
+ import androidx.camera.core.CameraSelector
+ import androidx.camera.core.ImageAnalysis
+ import androidx.camera.core.ImageCapture
+ ...
 +import com.gia.aicomposer.integration.AiCameraAssistant
 +import com.gia.aicomposer.model.SceneState
 +import com.gia.aicomposer.pose.PoseSuggestion
 
 -class MainActivity : AppCompatActivity() {
 +class MainActivity : AppCompatActivity(), AiCameraAssistant.Listener {
+```
+
+### 3.2 Field mới (cạnh `tracker`)
+
+```diff
+     private lateinit var analysisExecutor: ExecutorService
+     private val tracker = SubjectTracker()
 +
 +    private lateinit var aiAssistant: AiCameraAssistant
-+    private var syncingSwitch = false
++    /** Đang đồng bộ switch tự chụp của UI cũ -> assistant, tránh vòng lặp listener. */
++    private var syncingAutoCapture = false
 ```
 
-### Bước 3.2 — trong `onCreate`, **sau** `setContentView(...)` và sau khi `PreviewView` đã có trong layout
+### 3.3 `onCreate` — sau khi đã `findViewById` xong các view
 
 ```diff
-     setContentView(binding.root)
+         overlay.onTargetMoved = { withinSinceMs = 0L }
 +
-+    // Overlay AI được thêm vào chính khung chứa PreviewView.
-+    aiAssistant = AiCameraAssistant(this, binding.previewView, binding.previewContainer)
-+    aiAssistant.listener = this
++        // Assistant tự bọc PreviewView trong FrameLayout và thêm overlay hình que lên trên.
++        // Không truyền container: layout activity_main.xml là FrameLayout, CompositionOverlayView
++        // vẫn nằm phía trên nên chấm trắng/vàng cũ không bị che.
++        aiAssistant = AiCameraAssistant(this, previewView)
++        aiAssistant.listener = this
++
++        // CameraX chỉ cho một ImageAnalysis -> SubjectTracker cũ chạy trên analyzer của assistant.
++        aiAssistant.legacyFrameTap = ::analyzeFrameForSubject
 ```
 
-Nếu layout chưa có `FrameLayout` bọc `PreviewView`, bỏ tham số thứ 3 — assistant tự bọc:
+Không cần sửa `activity_main.xml`. Nếu sau này muốn kiểm soát thứ tự vẽ, bọc `PreviewView` trong
+`FrameLayout @+id/preview_container` và truyền container đó làm tham số thứ 3.
 
-```kotlin
-aiAssistant = AiCameraAssistant(this, binding.previewView)
-```
-
-### Bước 3.3 — layout: bọc `PreviewView` trong `FrameLayout` (khuyến nghị)
+### 3.4 `bindCameraUseCases()` — dùng chung `ImageCapture` + `ImageAnalysis` của assistant
 
 ```diff
--    <androidx.camera.view.PreviewView
--        android:id="@+id/previewView"
--        android:layout_width="0dp"
--        android:layout_height="0dp"
--        app:layout_constraintTop_toTopOf="parent"
--        app:layout_constraintBottom_toBottomOf="parent"
--        app:layout_constraintStart_toStartOf="parent"
--        app:layout_constraintEnd_toEndOf="parent" />
-+    <FrameLayout
-+        android:id="@+id/previewContainer"
-+        android:layout_width="0dp"
-+        android:layout_height="0dp"
-+        app:layout_constraintTop_toTopOf="parent"
-+        app:layout_constraintBottom_toBottomOf="parent"
-+        app:layout_constraintStart_toStartOf="parent"
-+        app:layout_constraintEnd_toEndOf="parent">
+         imageCapture = ImageCapture.Builder()
+             .setTargetAspectRatio(aspect)
+             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+             .build()
++        imageCapture?.let { aiAssistant.setImageCapture(it) }
+
+-        val analysis = ImageAnalysis.Builder()
+-            .setTargetResolution(Size(640, 480))
+-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+-            .build()
+-        analysis.setAnalyzer(analysisExecutor, ::analyzeFrame)
++        // Assistant đã cấu hình 640x480, RGBA_8888, KEEP_ONLY_LATEST và analyzer riêng.
++        val analysis = aiAssistant.imageAnalysis
+
+         overlay.previewAspectRatio = if (aspect == AspectRatio.RATIO_16_9) 16f / 9f else 4f / 3f
+
+         provider.unbindAll()
+         try {
+-            provider.bindToLifecycle(
++            val camera = provider.bindToLifecycle(
+                 this,
+                 CameraSelector.DEFAULT_BACK_CAMERA,
+                 preview,
+                 imageCapture,
+                 analysis
+             )
++            aiAssistant.onCameraBound(camera)   // đọc zoom ratio cho độ trôi khung
++            aiAssistant.onCameraOpened()        // pipeline chạy tiếp (nếu tự chụp đang bật)
+             setStatus("Di chuyen may de cham vang trung cham trang")
+```
+
+> Nếu app bạn đang bind **một `ImageAnalysis` khác**, bỏ nó khỏi `bindToLifecycle` và chuyển analyzer
+> của nó vào `aiAssistant.legacyFrameTap` (như `SubjectTracker` ở đây). Không bind 2 `ImageAnalysis`.
+
+### 3.5 Đổi `analyzeFrame(image: ImageProxy)` — **không** đóng proxy nữa
+
+Assistant đóng proxy sau khi dùng xong. Giữ nguyên phần đọc/tính điểm của `SubjectTracker`:
+
+```diff
+-    private fun analyzeFrame(image: ImageProxy) {
++    /** Chạy trên analyzer của assistant; KHÔNG đóng proxy (assistant đóng). */
++    private fun analyzeFrameForSubject(image: ImageProxy) {
+         try {
+             val point = tracker.analyze(image)
+             if (point != null) {
+                 runOnUiThread { onSubjectPoint(point.first, point.second) }
+             }
+         } catch (e: Exception) {
+             Log.e(TAG, "analyze error", e)
+-        } finally {
+-            image.close()
+         }
+     }
+```
+
+`analysisExecutor` vẫn giữ: nó còn dùng cho `saveSquareCropped()` (chế độ 1:1) và `shutdown()` ở
+`onDestroy`.
+
+### 3.6 `onSubjectPoint` — nhường quyền tự chụp khi pipeline AI đang bật
+
+Chấm vàng vẫn cập nhật như cũ; chỉ khi người dùng bật tự chụp của AI thì **không** để heuristic cũ
+chụp thêm lần nữa:
+
+```diff
+     private fun onSubjectPoint(x: Float, y: Float) {
+         overlay.subjectPoint = Pair(x, y)
+         overlay.invalidate()
+         if (!autoCaptureEnabled || capturing) return
++        // Pipeline AI đang tự căn khung/tự chụp: nó sở hữu việc chụp, tránh 2 lần chụp.
++        if (aiAssistant.settings.autoCaptureEnabled) return
+         val now = SystemClock.uptimeMillis()
+```
+
+Khi AI tắt (mặc định `autoCaptureEnabled = false` trong `AppSettings`), hành vi cũ **giữ nguyên 100%**
+(ngưỡng 0.08, giữ 600 ms, nghỉ 2.5 s).
+
+### 3.7 Vòng đời + callback (dán vào cuối class, cạnh `onDestroy`)
+
+```diff
++    override fun onStart() {
++        super.onStart()
++        aiAssistant.start()                 // bật cảm biến, chạy tiếp pipeline đang tạm dừng
++    }
 +
-+        <androidx.camera.view.PreviewView
-+            android:id="@+id/previewView"
++    override fun onStop() {
++        aiAssistant.stop()                  // chỉ tạm dừng, không reset
++        super.onStop()
++    }
++
+     override fun onDestroy() {
++        aiAssistant.release()               // đóng model + executor của assistant
+         super.onDestroy()
+         analysisExecutor.shutdown()
+     }
++
++    // ---------------------------------------------------------- AiCameraAssistant.Listener
++
++    override fun onGuidance(text: String) = setStatus(text)
++
++    override fun onPoseSuggested(suggestion: PoseSuggestion, scene: SceneState) {
++        // Gợi ý dáng: overlay đã tự vẽ hình que, ở đây chỉ hiện tên + điểm.
++        setStatus("${suggestion.pose.displayName} • ${"%.1f".format(suggestion.score)}")
++    }
++
++    override fun onAutoCaptureChanged(enabled: Boolean) {
++        syncingAutoCapture = true
++        autoCaptureEnabled = enabled
++        withinSinceMs = 0L
++        updateAutoButton()
++        syncingAutoCapture = false
++    }
++
++    override fun onCaptureSaved(uri: Uri) {
++        // Ảnh đã nằm trong MediaStore (Pictures/AICameraComposer) -> mở Thư viện là thấy.
++        Toast.makeText(this, "Da luu anh", Toast.LENGTH_SHORT).show()
++    }
++
++    override fun onCaptureFailed(message: String?) {
++        Toast.makeText(this, "Chup loi: $message", Toast.LENGTH_SHORT).show()
++    }
+```
+
+Nếu muốn nút "Tự dong" cũ điều khiển luôn pipeline AI, sửa listener của nút:
+
+```diff
+         autoButton.setOnClickListener {
+             autoCaptureEnabled = !autoCaptureEnabled
+             withinSinceMs = 0L
+             updateAutoButton()
++            if (!syncingAutoCapture) aiAssistant.setAutoCaptureEnabled(autoCaptureEnabled)
+             setStatus(if (autoCaptureEnabled) "Tu dong chup: BAT" else "Che do tay - cham vang la chu the")
+         }
+```
+
+`onCaptureSaved(uri)` nhận `content://media/...` (Android 10+) hoặc `file://` (API 26-28). Muốn mở
+ảnh ngay bằng trình xem của máy:
+`startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))`
+— uri `content://` nên không gặp `FileUriExposedException`.
+
+---
+
+## 4. `SubjectTracker.kt` — 1 chỗ sửa bắt buộc
+
+Vì `SubjectTracker` giờ chạy trên `ImageAnalysis` **RGBA_8888** của assistant (trước đây là YUV mặc
+định), phải tính luma từ R/G/B. Sửa đúng 2 chỗ, **không** đổi thuật toán, EMA hay phần xoay toạ độ.
+
+```diff
+         val yPlane = image.planes[0]
+         val buffer: ByteBuffer = yPlane.buffer
+         val rowStride = yPlane.rowStride
++        val pixelStride = yPlane.pixelStride
+@@
+-                        val idx = y * rowStride + x
+-                        if (idx < buffer.capacity()) {
+-                            sum += buffer.get(idx).toInt() and 0xFF
+-                            n++
+-                        }
++                        val idx = y * rowStride + x * pixelStride
++                        if (pixelStride >= 3) {
++                            // RGBA_8888: luma BT.601 xấp xỉ, thang 0..255 như mặt phẳng Y.
++                            if (idx + 2 < buffer.capacity()) {
++                                val red = buffer.get(idx).toInt() and 0xFF
++                                val green = buffer.get(idx + 1).toInt() and 0xFF
++                                val blue = buffer.get(idx + 2).toInt() and 0xFF
++                                sum += (red * 77 + green * 150 + blue * 29) shr 8
++                                n++
++                            }
++                        } else if (idx < buffer.capacity()) {
++                            sum += buffer.get(idx).toInt() and 0xFF
++                            n++
++                        }
+```
+
+- `pixelStride == 1` (YUV): `x * 1 == x` → kết quả **giống hệt** bản cũ.
+- `pixelStride == 3/4` (RGBA): lấy đúng điểm ảnh thay vì trượt byte, chấm vàng không nhảy loạn.
+- Không sửa `LOCK_THRESHOLD`, `LOCK_HOLD_MS`, `AUTO_COOLDOWN_MS` trong `MainActivity` (0.08 / 600 / 2500).
+
+Nếu bạn **giữ** `ImageAnalysis` YUV riêng cho `SubjectTracker` (không dùng `legacyFrameTap`), có thể bỏ
+qua mục này — nhưng khi đó không được bind 2 `ImageAnalysis`; cách duy nhất hợp lệ là chạy nó trong
+`legacyFrameTap`.
+
+---
+
+## 5. `CompositionOverlayView.kt` — không phải sửa
+
+- Overlay cũ (lưới 1/3, chấm trắng, chấm vàng, chạm đổi điểm mục tiêu) **giữ nguyên**. Nó là view
+  khai báo sau `PreviewView` trong `activity_main.xml`, còn `PoseOverlayView` của assistant nằm trong
+  `FrameLayout` bọc quanh `PreviewView` → vẽ **dưới** overlay cũ, cả hai cùng hiện.
+- Không xung đột chạm: `PoseOverlayView` không xử lý touch; `CompositionOverlayView.onTouchEvent`
+  vẫn nhận `ACTION_DOWN` như cũ.
+- `overlay.previewAspectRatio` vẫn được set trong `bindCameraUseCases()` như cũ — không đổi.
+- Tuỳ chọn (không bắt buộc): ẩn overlay cũ khi đang hiện hình que để màn hình gọn hơn.
+
+  ```kotlin
+  // sau khi bật/tắt gợi ý dáng
+  overlay.visibility = if (aiAssistant.settings.poseSuggestionsEnabled) View.INVISIBLE else View.VISIBLE
+  ```
+
+  Lưu ý: ẩn view thì mất luôn khả năng chạm để dời chấm trắng, và tự chụp heuristic cũ không còn
+  chạy — chỉ làm nếu bạn chấp nhận.
+- **Hai overlay dùng hai hệ toạ độ khác nhau**: overlay cũ vẽ theo tâm màn hình, overlay AI vẽ khung
+  3:4 trong vùng nội dung preview 4:3 (`previewAspect = 0.75f` mặc định của assistant). Nếu app bạn
+  đổi sang 16:9, khung 3:4 của AI sẽ lệch — hoặc giữ 4:3 khi bật AI, hoặc tạo lại assistant với
+  `previewAspect` tương ứng (tham số thứ 4 của constructor).
+
+---
+
+## 6. `GalleryActivity` + luồng lưu/xem ảnh
+
+### 6.1 Vì sao phải sửa
+
+Bản cũ trong repo:
+
+- chỉ query `MediaStore` với `DISPLAY_NAME LIKE 'AIC_%'`;
+- pipeline AI (`AiCameraAssistant`) lại ghi vào `getExternalFilesDir(Pictures)/AICameraComposer` bằng
+  `OutputFileOptions.Builder(File)` → **không có trong MediaStore** → ảnh tự chụp **không bao giờ hiện**
+  trong thư viện;
+- không xin quyền đọc trên API 26-28; không nạp lại danh sách khi quay về từ camera.
+
+### 6.2 Hợp đồng lưu ảnh mới (`util/PhotoStore.kt`)
+
+| | Nơi lưu | Ai thấy |
+|---|---|---|
+| Android 10+ (API 29+) | `MediaStore` album `Pictures/AICameraComposer`, `IS_PENDING=1` lúc ghi, `publish()` xoá cờ | `GalleryActivity` + app Thư viện/Gallery của máy |
+| Android 8-9 (API 26-28) | `getExternalFilesDir(Pictures)/AICameraComposer` | `GalleryActivity` (quét thêm thư mục này) |
+| MediaStore lỗi | tự fallback về thư mục app, log `PhotoStore` | nt |
+
+`AiCameraAssistant.capturePhoto()` đã chuyển sang `PhotoStore.prepare()` / `publish()` / `discard()`,
+nên ảnh của pipeline và ảnh chụp tay (`MainActivity.takePhoto()` – vốn đã ghi MediaStore) nằm **cùng
+một album**, cùng tiền tố `AIC_`. `onCaptureSaved(uri)` trả `content://...` dùng trực tiếp cho
+`ACTION_VIEW`.
+
+Manifest (repo đã có, chỉ cần kiểm tra):
+
+```xml
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+...
+<activity android:name=".GalleryActivity" android:exported="false" />
+```
+
+### 6.3 Thay `GalleryActivity` + 2 file resource
+
+1. Ghi đè `GalleryActivity.kt` bằng bản workspace (quyền đọc, MediaStore + thư mục app, `onResume`,
+   thumbnail `loadThumbnail`/decode lấy mẫu, decode full ≤ 2048 px có xoay EXIF, trạng thái rỗng).
+2. `res/layout/activity_gallery.xml` — thêm vào trong `LinearLayout`, **trước** `GridView`:
+
+```diff
++        <TextView
++            android:id="@+id/empty_state"
 +            android:layout_width="match_parent"
-+            android:layout_height="match_parent" />
-+    </FrameLayout>
-```
-
-Lưu ý: nếu view khác đang `layout_constraintTop_toBottomOf="@id/previewView"` thì đổi sang
-`@id/previewContainer` (vì PreviewView giờ nằm trong FrameLayout).
-
-### Bước 3.4 — `startCamera()`: thêm use case phân tích + báo assistant
-
-```diff
-     val imageCapture = ImageCapture.Builder()
-         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-         .build()
-+    aiAssistant.setImageCapture(imageCapture)
++            android:layout_height="wrap_content"
++            android:gravity="center"
++            android:padding="24dp"
++            android:text="@string/gallery_empty"
++            android:textColor="@android:color/white"
++            android:textSize="15sp"
++            android:visibility="gone" />
 +
-+    // Dùng đúng ImageAnalysis của assistant (đã cấu hình 640x480 RGBA + KEEP_ONLY_LATEST).
-+    val imageAnalysis = aiAssistant.imageAnalysis
-
--    cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
-+    val camera = cameraProvider.bindToLifecycle(
-+        this, cameraSelector, preview, imageCapture, imageAnalysis,
-+    )
-+
-+    aiAssistant.onCameraBound(camera)
-+    aiAssistant.onCameraOpened()
+         <GridView
+             android:id="@+id/photo_grid"
 ```
 
-**Quan trọng:** CameraX chỉ cho **một** `ImageAnalysis` mỗi camera. Nếu app bạn đã có `ImageAnalysis`
-riêng, hãy bỏ nó khỏi `bindToLifecycle` và dùng `aiAssistant.imageAnalysis` (hoặc gọi
-`aiAssistant.imageAnalysis.setAnalyzer(...)` không được — nó đã có analyzer riêng). Không bind cả hai.
-
-### Bước 3.5 — vòng đời
+3. `res/values/strings.xml` — thêm 1 dòng (không ghi đè file):
 
 ```diff
- override fun onStart() {
-     super.onStart()
-+    aiAssistant.start()
- }
-
- override fun onStop() {
-+    aiAssistant.stop()
-     super.onStop()
- }
-
- override fun onDestroy() {
-+    aiAssistant.release()
-     super.onDestroy()
- }
+     <string name="app_name">AI Composition Camera</string>
++    <string name="gallery_empty">Chưa có ảnh nào — chụp một tấm trước</string>
 ```
 
-`aiAssistant.stop()` tắt cảm biến và **tạm dừng** pipeline (kể cả SubjectTracker cũ vẫn chạy độc lập
-được). Việc mở hộp thoại xin quyền hay khóa màn hình cũng rơi vào `onStop` → `onStart`, nên
-`start()` sẽ đưa pipeline chạy tiếp từ bước "chờ ổn định" thay vì để nó kẹt ở `WAITING`.
-Nếu muốn tắt hẳn tự căn khung thì dùng `setAutoCaptureEnabled(false)`, đừng trông vào `onStop`.
+4. `MainActivity` giữ nguyên nút `gallery_button` → `startActivity(Intent(this, GalleryActivity::class.java))`.
 
-### Bước 3.6 — nút bấm
+### 6.4 Kiểm tra luồng ảnh (sau khi merge)
 
-```diff
- btnSuggestPose.setOnClickListener {
--    // code cũ của bạn
-+    aiAssistant.suggestPose()          // vẽ hình que + trả tên/điểm qua listener
- }
+1. Chụp tay (CHUP) → mở **Thư viện** → ảnh mới nhất ở ô đầu.
+2. Bật tự chụp AI → đợi pipeline chụp → quay lại app → mở **Thư viện** → ảnh tự chụp có mặt (nhờ
+   `publish()` xoá `IS_PENDING`; ảnh đang ghi sẽ không hiện nửa vời).
+3. Xoay máy ở chế độ 1:1 → ảnh vuông vẫn mở đúng chiều (EXIF).
+4. Chạm thumbnail → ảnh full màn hình, chạm lần nữa để đóng.
+5. Android 8-9: cấp `READ_EXTERNAL_STORAGE` khi được hỏi → thấy ảnh trong thư mục app.
+6. Xoá app data: thư viện rỗng hiện "Chưa có ảnh nào — chụp một tấm trước", không crash.
 
- shutterButton.setOnClickListener {
--    // code cũ của bạn
-+    aiAssistant.captureNow()           // chụp tay vẫn đi qua pipeline để chung state
- }
+`adb` kiểm tra nhanh:
 
- settingsButton.setOnClickListener {
--    // code cũ của bạn
-+    aiAssistant.showSettingsDialog()   // gợi ý dáng / tự chụp / độ trễ 0–3s
- }
-
- switchAutoCapture.setOnCheckedChangeListener { _, checked ->
--    // code cũ của bạn
-+    if (syncingSwitch) return@setOnCheckedChangeListener
-+    aiAssistant.setAutoCaptureEnabled(checked)
- }
+```bat
+adb shell content query --uri content://media/external/images/media --projection _display_name:relative_path --where "_display_name LIKE 'AIC_%'"
 ```
-
-Nếu bạn muốn giữ nguyên nút chụp cũ (tự gọi `imageCapture.takePicture`), vẫn được — pipeline không
-bắt buộc. Nhưng khi đó overlay/pipeline không biết đã chụp; cách gọn nhất là thay bằng
-`aiAssistant.captureNow()` (pipeline tự tắt sau khi chụp tay, ảnh vẫn do `ImageCapture` lấy).
-
-### Bước 3.7 — nhận trạng thái (dán vào cuối class)
-
-```kotlin
-override fun onGuidance(text: String) {
-    tvGuidance.text = text                     // câu hướng dẫn của 9 bước
-}
-
-override fun onPoseSuggested(suggestion: PoseSuggestion, scene: SceneState) {
-    tvPoseName.text = getString(
-        R.string.suggest_result, suggestion.pose.displayName, suggestion.score,
-    )
-}
-
-override fun onPoseSuggestionsToggled(enabled: Boolean) {
-    val s = aiAssistant.currentSuggestion
-    tvPoseName.text = when {
-        !enabled -> getString(R.string.guidance_pose_disabled)
-        s == null -> getString(R.string.pose_hint_idle)
-        else -> getString(R.string.suggest_result, s.pose.displayName, s.score)
-    }
-}
-
-override fun onAutoCaptureChanged(enabled: Boolean) {
-    syncingSwitch = true
-    switchAutoCapture.isChecked = enabled
-    syncingSwitch = false
-}
-
-override fun onCaptureSaved(uri: Uri) {
-    // ảnh nằm ở getExternalFilesDir(Pictures)/AICameraComposer/AIC_*.jpg
-    // muốn đưa vào GalleryActivity của bạn thì dùng uri này.
-}
-
-override fun onCaptureFailed(message: String?) { /* hiện toast nếu muốn */ }
-```
-
-Các callback khác của `Listener` có default rỗng → chỉ override cái bạn cần.
 
 ---
 
-## 4. Bảng API `AiCameraAssistant`
+## 7. Thứ tự merge + build
 
-| Thành viên | Việc dùng |
-|---|---|
-| `imageAnalysis: ImageAnalysis` | bind cùng Preview/ImageCapture |
-| `overlay: PoseOverlayView` | hiếm khi cần; assistant đã tự thêm vào container |
-| `setImageCapture(capture)` | sau khi tạo `ImageCapture` |
-| `onCameraBound(camera)` | để đọc zoom ratio cho độ trôi khung |
-| `onCameraOpened()` | sau `bindToLifecycle` thành công |
-| `start()` / `stop()` / `release()` | onStart / onStop / onDestroy (`stop` chỉ tạm dừng, `start` chạy tiếp) |
-| `suggestPose(): PoseSuggestion?` | nút "Gợi ý dáng" |
-| `captureNow()` | nút chụp tay |
-| `setAutoCaptureEnabled(Boolean)` | switch tự chụp |
-| `showSettingsDialog()` | nút Cài đặt |
-| `settings: AppSettings` | đọc/ghi trực tiếp nếu cần |
-| `currentSuggestion` / `currentPose` | dáng đang hiện |
-| `listener: Listener?` | nhận guidance / pose / auto-capture / saved |
+1. Chép code module (mục 1.1) + `PhotoStore.kt`.
+2. Chép 2 model vào `assets/` (mục 2.2).
+3. Sửa `app/build.gradle.kts` (mục 2.1) → **Sync Now**.
+4. Sửa `SubjectTracker.kt` (mục 4) — 2 chỗ.
+5. Dán 7 mốc vào `MainActivity.kt` (mục 3).
+6. Ghi đè `GalleryActivity.kt` + layout + string (mục 6.3).
+7. Build:
+
+```bat
+gradlew.bat :app:assembleDebug
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+Kỳ vọng: `BUILD SUCCESSFUL`; APK còn đúng 2 ABI; mở app không crash; chấm vàng/trắng và tự chụp
+heuristic vẫn như trước; thư viện thấy cả ảnh chụp tay và ảnh pipeline AI.
+
+Checklist test chi tiết (emulator E1–E12, máy thật D1–D11, thư viện G1–G5): xem `TESTING.md`.
 
 ---
 
-## 5. Thứ tự build & kiểm tra trên máy bạn
+## 8. Kích thước APK — số đo thực tế sau khi lọc ABI
 
-> Checklist chi tiết từng mục (emulator vs máy thật, kèm tiêu chí đạt/không đạt): xem `TESTING.md`.
+Build lại trong workspace này (JDK 17 + Android SDK 34, `./gradlew :app:assembleDebug`), cùng một
+commit, chỉ khác `abiFilters`:
 
-1. Chép file (mục 1) → sửa gradle (mục 2) → dán 7 bước (mục 3).
-2. `gradlew.bat :app:assembleDebug` — phải `BUILD SUCCESSFUL`, APK ở
-   `app\build\outputs\apk\debug\app-debug.apk`.
-3. Emulator (không cảm biến): bấm "Gợi ý dáng" → thấy hình que + khung 3:4; bật "Tự chụp" → sau
-   ~600 ms pipeline coi như yên (fallback), tìm khung, đếm 1 s rồi chụp. Ảnh phải **không** có overlay.
-4. Máy thật: rung máy → pipeline về "Giữ máy yên"; xoay máy → khung trôi theo; giữ tâm trong 15 dp
-   khoảng 1 s → đếm ngược → chụp; lệch ra giữa chừng → huỷ đếm.
-5. GalleryActivity: ảnh mới nằm ở `Android/data/com.gia.aicomposer/files/Pictures/AICameraComposer/`.
+| | Không lọc ABI | Có `arm64-v8a` + `x86_64` |
+|---|---|---|
+| **APK** | **110.943.003 byte (105,8 MiB)** | **66.033.933 byte (63,0 MiB)** |
+| native `.so` | 73,5 MiB | 30,7 MiB |
+| assets | 22,8 MiB | 22,8 MiB |
+| dex | 20,7 MiB | 20,7 MiB |
+| res + `resources.arsc` | 1,7 MiB | 1,7 MiB |
 
-## 6. Ghi chú xung đột có thể gặp
+**Giảm 44.909.070 byte = 42,8 MiB = −40,5%.** Log build: `BUILD SUCCESSFUL` (cả 2 lần), `aapt dump
+badging` báo `native-code: 'arm64-v8a' 'x86_64'`.
 
-- **Hai `ImageAnalysis`**: bỏ cái cũ khỏi `bindToLifecycle` (xem 3.4).
-- **Tên string/color trùng**: xoá dòng trùng trong `ai_strings.xml` / `ai_colors.xml`.
-- **Overlay cũ**: `CompositionOverlayView` của bạn vẫn hoạt động; nếu muốn ẩn khi dùng overlay AI thì
-  set `visibility = GONE` khi bật gợi ý dáng.
-- **`SubjectTracker` cũ**: không xung đột (đọc cảm biến độc lập). Nếu muốn một nguồn duy nhất, thay
-  điều kiện ổn định của nó bằng `AiCameraAssistant` — nhưng không bắt buộc.
-- **Theme**: dialog cài đặt dùng `AlertDialog` + `SwitchCompat` nên chạy với mọi theme.
+### 8.1 Phần nào phình to
 
-## 7. Chưa kiểm chứng được ở đây
+| Hạng mục | Trước | Sau |
+|---|---|---|
+| `lib/x86/` (bỏ) | 29,7 MiB | 0 |
+| `lib/arm64-v8a/` | 21,4 MiB | 21,4 MiB |
+| `lib/armeabi-v7a/` (bỏ) | 13,1 MiB | 0 |
+| `lib/x86_64/` | 9,4 MiB | 9,4 MiB |
+| `assets/` | 22,8 MiB | 22,8 MiB |
+| `classes*.dex` (12 file) | 20,7 MiB | 20,7 MiB |
 
-Máy build là Linux cloud, không có emulator/KVM và không truy cập được `D:\AICameraComposer`:
-chưa chạy runtime, chưa xem overlay bằng mắt, chưa test cảm biến/khóa khung/tự chụp. Build APK của
-workspace thì đã xanh (`BUILD SUCCESSFUL`) và có đủ class + 2 model trong assets.
+File đơn lẻ lớn nhất:
 
-## 8. Đã kiểm chứng trong workspace (trước khi giao)
+```
+20,4 MiB  lib/x86/libmediapipe_tasks_vision_jni.so          ← bị loại
+13,4 MiB  lib/arm64-v8a/libmediapipe_tasks_vision_jni.so
+13,2 MiB  assets/efficientdet_lite0.tflite                  ← model, giữ
+ 9,7 MiB  classes.dex
+ 9,3 MiB  lib/x86_64/libface_detector_v2_jni.so
+ 8,1 MiB  lib/armeabi-v7a/libmediapipe_tasks_vision_jni.so   ← bị loại
+ 5,5 MiB  assets/pose_landmarker_lite.task                   ← model, giữ
+```
 
-- `./gradlew :app:assembleDebug` → `BUILD SUCCESSFUL` (exit 0); APK
-  `app/build/outputs/apk/debug/app-debug.apk` ≈ 63 MB (66.028.099 byte), chỉ còn ABI
-  `arm64-v8a` + `x86_64` (trước khi lọc ABI: ≈ 106 MB / 110.974.312 byte với 4 ABI).
-- APK chứa `assets/efficientdet_lite0.tflite` + `assets/pose_landmarker_lite.task` (stored, không nén)
-  và các class `integration/AiCameraAssistant`, `integration/AiOverlayHost`, `integration/AiSettingsDialog`.- Kiểm tra tĩnh: package `integration/`, `pose/`, `vision/`, `pipeline/`, `overlay/`, `settings/`, `util/`
-  **không** tham chiếu `MainActivity`, `ActivityMainBinding` hay `binding.` nào → chép sang app của bạn
-  không kéo theo code demo.
-- Toàn bộ `R.string.*` / `R.color.*` mà code dùng đều có trong `ai_strings.xml` / `ai_colors.xml`.
+Kết luận: **không phải model làm APK phình** — 19,6 MiB model là bắt buộc. Thủ phạm là **native
+`.so` của MediaPipe + ML Kit nhân 4 ABI** (73,5 MiB, 69,5% APK) và **dex 20,7 MiB / 12 file** (do
+minify tắt ở bản debug). Lọc ABI cắt đúng phần dư (x86 + armeabi-v7a).
+
+### 8.2 APK sau khi lọc vẫn đủ model
+
+Kiểm tra trực tiếp trong `app-debug.apk`:
+
+```
+assets/efficientdet_lite0.tflite   13.836.895 byte   compress=0 (stored)
+assets/pose_landmarker_lite.task    5.777.746 byte   compress=0 (stored)
+```
+
+So SHA-256 giữa APK trước/sau: **giống hệt** (2 model không bị nén lại, không bị strip):
+`efficientdet_lite0.tflite` = `40338edf…`, `pose_landmarker_lite.task` = `59929e1d…`.
+Class cần thiết có trong dex: `GalleryActivity`, `util/PhotoStore`, `integration/AiCameraAssistant`,
+`SubjectTracker`.
+
+### 8.3 Nếu cần nhỏ hơn nữa (chưa áp dụng)
+
+- `splits { abi { isEnable = true; include("arm64-v8a","x86_64"); isUniversalApk = false } }` → mỗi máy
+  chỉ tải 1 ABI (bản arm64 ≈ 43 MiB), nhưng phải cài đúng file.
+- Bật R8 cho bản release (`isMinifyEnabled = true`) → dex giảm mạnh; bản debug hiện tắt nên vẫn ~20,7 MiB.
+- `assets/models_bundled/*` (~4,6 MiB) là model nhúng sẵn của `mlkit:face-detection`; chỉ bỏ được nếu
+  thay bằng bộ phát hiện mặt khác.
+
+---
+
+## 9. Ghi chú xung đột & giới hạn
+
+- **Một `ImageAnalysis`**: bắt buộc dùng `aiAssistant.imageAnalysis`; analyzer cũ đi qua
+  `legacyFrameTap`.
+- **Một `ImageCapture`**: truyền instance của activity vào `setImageCapture()`; cả chụp tay và pipeline
+  dùng chung.
+- **Hai lần tự chụp**: đã chặn bằng `if (aiAssistant.settings.autoCaptureEnabled) return` trong
+  `onSubjectPoint` (mục 3.6).
+- **Resource trùng tên**: xoá dòng trùng trong `ai_strings.xml` / `ai_colors.xml`.
+- **Tỉ lệ khung**: pipeline AI thiết kế cho preview 4:3 dọc (`previewAspect = 0.75`); đổi 16:9 thì
+  khung 3:4 lệch như mục 5.
+- **Emulator x86_64**: từ `tasks-vision:1.2.3` (native ở `tasks-core:1.2.3`) MediaPipe nạp được trên
+  emulator; nếu log vẫn báo `pose landmarker unavailable` thì là lỗi tương thích model — xem
+  `docs/reports/2026-11-18-mediapipe-abis.md`.
+- **Chưa chạy runtime**: môi trường build là Linux cloud, không có emulator/KVM, nên chưa xác nhận
+  bằng mắt overlay/cảm biến/tự chụp và chưa mở thử ảnh trong gallery trên máy thật. Những gì đã xác
+  nhận: build xanh 2 lần, APK đúng ABI, đủ model (SHA-256 khớp), class mới có trong dex.
