@@ -63,6 +63,12 @@ android {
             )
         }
     }
+
+    testOptions {
+        // Robolectric cần manifest/tài nguyên đã merge cho các test dùng android.graphics
+        // (RectF/PointF là stub rỗng nếu chạy JVM thuần).
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -89,4 +95,7 @@ dependencies {
     implementation("com.google.mlkit:face-detection:16.1.6")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
 }
