@@ -486,7 +486,7 @@ git commit -m "build: target Android 16 and handle edge-to-edge"
   - `PhotoStore.isAppPicture(uri: Uri): Boolean`
   - `PhotoStore.delete(context: Context, uri: Uri): Boolean`
 
-- [ ] **Step 1: Viết test đỏ**
+- [x] **Step 1: Viết test đỏ** (xong 2026-11-18)
 
 `PhotoShareTest.kt` (Robolectric):
 ```kotlin
@@ -503,23 +503,27 @@ git commit -m "build: target Android 16 and handle edge-to-edge"
 }
 ```
 
-- [ ] **Step 2: Chạy test để thấy đỏ**
+- [x] **Step 2: Chạy test để thấy đỏ** (xong 2026-11-18)
 
 Run: `./gradlew :app:testDebugUnitTest --tests '*PhotoShareTest*' --no-daemon`
 Expected: FAIL `Unresolved reference: PhotoShare`.
+Kết quả: `compileDebugUnitTestKotlin FAILED`, 1 lỗi `Unresolved reference: PhotoShare` + 2 lỗi
+`Unresolved reference: isAppPicture` (exit 1).
 
-- [ ] **Step 3: Viết `PhotoShare` + hai hàm `PhotoStore`**
+- [x] **Step 3: Viết `PhotoShare` + hai hàm `PhotoStore`** (xong 2026-11-18)
 
 `PhotoShare.intent` dựng `Intent(ACTION_SEND)` với `type = "image/jpeg"`, `putExtra(EXTRA_STREAM, uri)`, `addFlags(FLAG_GRANT_READ_URI_PERMISSION)`. `PhotoStore.isAppPicture` = scheme `file`. `PhotoStore.delete`: thử `contentResolver.delete(uri, null, null)`; nếu ném hoặc trả 0 và `isAppPicture` thì `File(uri.path!!).delete()`; trả `true` khi đã xoá.
 
-- [ ] **Step 4: Thêm nút vào Thư viện**
+- [x] **Step 4: Thêm nút vào Thư viện** (xong 2026-11-18)
 
 `activity_gallery.xml`: thêm `LinearLayout` id `photo_actions` (visibility `gone`) chứa 2 `Button`: `share_button` (`@string/gallery_share`), `delete_button` (`@string/gallery_delete`). `GalleryActivity.showFull` bật `photo_actions`; `full.setOnClickListener` ẩn cả ảnh lẫn `photo_actions`. `share_button` → `startActivity(Intent.createChooser(PhotoShare.intent(current), null))`; `delete_button` → `AlertDialog` xác nhận, xoá xong gọi `loadPhotos()` và ẩn ảnh full.
 
-- [ ] **Step 5: Chạy test + build**
+- [x] **Step 5: Chạy test + build** (xong 2026-11-18)
 
 Run: `./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon`
 Expected: toàn bộ test xanh (47 test cũ + `FocusGateTest` + `MirrorGeometryTest` + `PhotoShareTest`), `BUILD SUCCESSFUL`.
+Kết quả: `BUILD SUCCESSFUL`, **56 test, 0 fail** (54 trước + 2 `PhotoShareTest`). APK: arm64
+57.651.683 B, x86_64 62.958.618 B.
 
 - [ ] **Step 6: Commit**
 

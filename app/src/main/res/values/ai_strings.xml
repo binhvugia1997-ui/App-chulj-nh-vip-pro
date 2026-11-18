@@ -32,4 +32,10 @@
 
     <string name="suggest_result">%1$s • điểm %2$.1f</string>
     <string name="capture_saved">Đã lưu: %1$s</string>
+
+    <string name="gallery_share">Chia sẻ</string>
+    <string name="gallery_delete">Xoá</string>
+    <string name="gallery_delete_confirm">Xoá ảnh này khỏi máy?</string>
+    <string name="gallery_delete_failed">Không xoá được ảnh</string>
+    <string name="gallery_cancel">Huỷ</string>
 </resources>

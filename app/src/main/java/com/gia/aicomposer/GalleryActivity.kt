@@ -1,7 +1,9 @@
 package com.gia.aicomposer
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.ContentUris
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -20,10 +22,12 @@ import android.widget.Button
 import android.widget.GridView
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
+import com.gia.aicomposer.util.PhotoShare
 import com.gia.aicomposer.util.PhotoStore
 
 /**
@@ -43,6 +47,10 @@ class GalleryActivity : AppCompatActivity() {
     private lateinit var grid: GridView
     private lateinit var full: ImageView
     private lateinit var empty: TextView
+    private lateinit var actions: View
+
+    /** Ảnh đang xem full màn hình; null khi không xem ảnh nào. */
+    private var currentPhoto: Uri? = null
 
     /** Android 13+ dùng READ_MEDIA_IMAGES; Android 8-12 dùng READ_EXTERNAL_STORAGE. */
     private val readPermission: String =
@@ -59,11 +67,14 @@ class GalleryActivity : AppCompatActivity() {
         grid = findViewById(R.id.photo_grid)
         full = findViewById(R.id.full_photo)
         empty = findViewById(R.id.empty_state)
+        actions = findViewById(R.id.photo_actions)
 
         grid.adapter = adapter
         grid.setOnItemClickListener { _, _, position, _ -> showFull(photos[position]) }
-        full.setOnClickListener { full.visibility = View.GONE }
+        full.setOnClickListener { hideFull() }
         findViewById<Button>(R.id.back_button).setOnClickListener { finish() }
+        findViewById<Button>(R.id.share_button).setOnClickListener { shareCurrent() }
+        findViewById<Button>(R.id.delete_button).setOnClickListener { confirmDeleteCurrent() }
 
         // Từ Android 10, app đọc được ảnh do chính nó tạo trong MediaStore mà không cần quyền.
         // Android 8-9 vẫn cần READ_EXTERNAL_STORAGE để đọc thư mục ảnh của app.
@@ -124,7 +135,37 @@ class GalleryActivity : AppCompatActivity() {
         } else {
             full.setImageBitmap(bitmap)
         }
+        currentPhoto = uri
         full.visibility = View.VISIBLE
+        actions.visibility = View.VISIBLE
+    }
+
+    /** Đóng ảnh full: ẩn cả ảnh lẫn hàng nút Chia sẻ/Xoá. */
+    private fun hideFull() {
+        full.visibility = View.GONE
+        actions.visibility = View.GONE
+        currentPhoto = null
+    }
+
+    private fun shareCurrent() {
+        val uri = currentPhoto ?: return
+        startActivity(Intent.createChooser(PhotoShare.intent(uri), getString(R.string.gallery_share)))
+    }
+
+    private fun confirmDeleteCurrent() {
+        val uri = currentPhoto ?: return
+        AlertDialog.Builder(this)
+            .setMessage(R.string.gallery_delete_confirm)
+            .setNegativeButton(R.string.gallery_cancel, null)
+            .setPositiveButton(R.string.gallery_delete) { _, _ ->
+                if (PhotoStore.delete(this, uri)) {
+                    hideFull()
+                    loadPhotos()
+                } else {
+                    Toast.makeText(this, R.string.gallery_delete_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
     }
 
     /** Decode có lấy mẫu (tránh OOM với ảnh 12 MP) và xoay theo EXIF. */

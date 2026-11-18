@@ -104,6 +104,26 @@ object PhotoStore {
         return dir
     }
 
+    /** Ảnh nằm trong thư mục riêng của app (API 26-28 hoặc khi MediaStore lỗi), không phải MediaStore. */
+    fun isAppPicture(uri: Uri): Boolean = uri.scheme == "file"
+
+    /**
+     * Xoá một ảnh trong Thư viện. Trả `true` khi ảnh đã không còn.
+     *
+     * Thử MediaStore trước (ảnh `AIC_*` do app này tạo nên xoá được trực tiếp); nếu resolver ném
+     * hoặc không xoá được dòng nào và Uri là file trong thư mục app thì xoá thẳng file.
+     */
+    fun delete(context: Context, uri: Uri): Boolean {
+        try {
+            if (context.contentResolver.delete(uri, null, null) > 0) return true
+        } catch (t: Throwable) {
+            Log.w(TAG, "delete failed for $uri", t)
+        }
+        if (!isAppPicture(uri)) return false
+        val path = uri.path ?: return false
+        return runCatching { File(path).delete() }.getOrDefault(false)
+    }
+
     /** Ảnh đã lưu ở thư mục riêng của app, mới nhất trước (dùng cho GalleryActivity). */
     fun listAppPictures(context: Context): List<Uri> {
         val dir = appPictureDir(context) ?: return emptyList()
