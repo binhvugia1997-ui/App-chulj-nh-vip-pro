@@ -50,7 +50,7 @@ class CapturePipeline(
     private val orientation: DeviceOrientation,
     private val zoomProvider: () -> Float,
     /**
-     * AF/AE đã hội tụ chưa. Mặc định `true` để giữ hành vi cũ khi host không gắn callback camera2;
+     * AF/AE đã hội tụ chưa. Mặc định `true` cho nơi không cần cổng này (test, host tự chụp tay);
      * [com.gia.aicomposer.integration.AiCameraAssistant] nối vào [FocusGate].
      */
     private val focusReady: () -> Boolean = { true },

@@ -134,24 +134,16 @@ class PoseOverlayView @JvmOverloads constructor(
 
         val halfWidth = frameNormAspect * frameHeightFraction / 2f
         val halfHeight = frameHeightFraction / 2f
+        // Camera trước: PreviewView lật hình còn khung phân tích thì không -> lật tâm khung.
+        // Lật toạ độ chuẩn hoá quanh 0.5 cho cùng kết quả với lật toạ độ view quanh contentRect.
+        val centerX = if (mirrorHorizontally) PreviewGeometry.mirrorX(frameCenter.x) else frameCenter.x
         val normalizedFrame = RectF(
-            frameCenter.x - halfWidth,
+            centerX - halfWidth,
             frameCenter.y - halfHeight,
-            frameCenter.x + halfWidth,
+            centerX + halfWidth,
             frameCenter.y + halfHeight,
         )
-        val frame = PreviewGeometry.rectToView(normalizedFrame, content).let { rect ->
-            if (!mirrorHorizontally) {
-                rect
-            } else {
-                RectF(
-                    PreviewGeometry.mirrorXInView(rect.right, content),
-                    rect.top,
-                    PreviewGeometry.mirrorXInView(rect.left, content),
-                    rect.bottom,
-                )
-            }
-        }
+        val frame = PreviewGeometry.rectToView(normalizedFrame, content)
 
         if (showFrame) drawGuideFrame(canvas, frame)
         if (showPose) pose?.let { drawStickFigure(canvas, it, frame) }

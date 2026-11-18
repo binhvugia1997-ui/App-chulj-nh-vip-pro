@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import com.gia.aicomposer.util.PreviewGeometry
 import kotlin.math.hypot
 
 /**
@@ -34,16 +33,6 @@ class CompositionOverlayView @JvmOverloads constructor(
 
     /** Ti le khung hinh (rong/cao) cua luong preview, dung de tinh letterbox. */
     var previewAspectRatio: Float = 4f / 3f
-
-    /**
-     * Camera truoc: preview bi lat ngang con khung phan tich thi khong. Diem chuan hoa van luu
-     * theo khong gian camera (khong mirror), chi luc ve moi lat quanh truc giua cua vung preview.
-     */
-    var mirrorHorizontally: Boolean = false
-        set(value) {
-            field = value
-            invalidate()
-        }
 
     var onTargetMoved: (() -> Unit)? = null
 
@@ -130,16 +119,14 @@ class CompositionOverlayView @JvmOverloads constructor(
         canvas.drawLine(left, y1, right, y1, gridPaint)
         canvas.drawLine(left, y2, right, y2, gridPaint)
 
-        val axisSum = left + right
-
         // Cham trang muc tieu.
-        val tx = toViewX(targetPoint.first, rect).let { if (mirrorHorizontally) axisSum - it else it }
+        val tx = toViewX(targetPoint.first, rect)
         val ty = toViewY(targetPoint.second, rect)
         canvas.drawCircle(tx, ty, 46f, if (locked) lockedPaint else targetPaint)
         canvas.drawCircle(tx, ty, 10f, targetDotPaint)
 
         // Cham vang chu the + duong noi huong dan.
-        val sx = toViewX(subjectPoint.first, rect).let { if (mirrorHorizontally) axisSum - it else it }
+        val sx = toViewX(subjectPoint.first, rect)
         val sy = toViewY(subjectPoint.second, rect)
         canvas.drawLine(sx, sy, tx, ty, linePaint)
         canvas.drawCircle(sx, sy, 22f, subjectPaint)
@@ -150,8 +137,7 @@ class CompositionOverlayView @JvmOverloads constructor(
             val rect = previewRect()
             val fx = ((event.x - rect[0]) / (rect[2] - rect[0])).coerceIn(0f, 1f)
             val fy = ((event.y - rect[1]) / (rect[3] - rect[1])).coerceIn(0f, 1f)
-            // Diem cham luu theo khong gian camera nen phai lat lai cho khop hinh dang thay.
-            targetPoint = Pair(if (mirrorHorizontally) PreviewGeometry.mirrorX(fx) else fx, fy)
+            targetPoint = Pair(fx, fy)
             locked = false
             onTargetMoved?.invoke()
             invalidate()

@@ -44,9 +44,6 @@ object PreviewGeometry {
      */
     fun mirrorX(x: Float): Float = 1f - x
 
-    /** Lật một toạ độ x **đã map sang view** quanh trục giữa của [content]. */
-    fun mirrorXInView(x: Float, content: RectF): Float = content.left + content.right - x
-
     fun rectToView(rect: RectF, content: RectF): RectF = RectF(
         content.left + rect.left * content.width(),
         content.top + rect.top * content.height(),

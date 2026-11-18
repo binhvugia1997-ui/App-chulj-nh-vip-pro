@@ -281,10 +281,12 @@ Không cần sửa `activity_main.xml`. Nếu sau này muốn kiểm soát thứ
 ### 3.4 `bindCameraUseCases()` — dùng chung `ImageCapture` + `ImageAnalysis` của assistant
 
 ```diff
-         imageCapture = ImageCapture.Builder()
-             .setTargetAspectRatio(aspect)
-             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-             .build()
+                 // Builder của assistant gắn callback AF/AE; ImageCapture.Builder() trơn sẽ làm pipeline
+        // không bao giờ tự chụp (xem mục 3.8).
+        imageCapture = aiAssistant.imageCaptureBuilder()
+            .setTargetAspectRatio(aspect)
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
 +        imageCapture?.let { aiAssistant.setImageCapture(it) }
 
 -        val analysis = ImageAnalysis.Builder()
@@ -434,19 +436,17 @@ private fun switchCamera() {
     } else {
         CameraSelector.LENS_FACING_BACK
     }
-    val front = lensFacing == CameraSelector.LENS_FACING_FRONT
-    // Overlay hình que + khung 3:4 của assistant.
-    aiAssistant.setFrontCameraActive(front)
-    // CompositionOverlayView (chấm trắng/vàng) do activity giữ nên phải tự set.
-    overlay.mirrorHorizontally = front
+    // Overlay hình que + khung 3:4 của assistant tự lật phần vẽ.
+    aiAssistant.setFrontCameraActive(lensFacing == CameraSelector.LENS_FACING_FRONT)
     bindCameraUseCases()
 }
 ```
 
 - Gọi `setFrontCameraActive` **mỗi lần** bind camera, kể cả lần đầu, để cờ không lệch với
   `CameraSelector` thực tế.
-- Hai overlay tự lật điểm vẽ quanh trục giữa của vùng preview: `PoseOverlayView` lật khung 3:4,
-  `CompositionOverlayView` lật cả chấm trắng lẫn chấm vàng và map lại toạ độ khi chạm.
+- `PoseOverlayView` lật tâm khung 3:4 (và hình que vẽ theo khung) quanh trục giữa vùng preview.
+- `CompositionOverlayView` (chấm trắng/vàng của app cũ) **không** lật: nó chỉ dùng camera sau, và
+  thêm cờ mirror vào đó là nhánh không bao giờ chạy.
 - `SubjectTracker` không cần sửa: nó đọc khung phân tích (chưa mirror) và trả toạ độ chuẩn hoá theo
   không gian camera.
 - Ảnh chụp bằng camera trước chỉ bị lật nếu bạn tự lật khi lưu; CameraX trả ảnh đúng chiều như cảm

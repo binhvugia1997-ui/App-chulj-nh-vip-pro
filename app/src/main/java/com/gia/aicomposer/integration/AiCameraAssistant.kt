@@ -142,10 +142,6 @@ class AiCameraAssistant(
     /** Cổng AF/AE: pipeline chỉ tự chụp khi ảnh đã nét và phơi sáng ổn định. */
     private val focusGate = FocusGate()
 
-    /** Host chưa dùng [imageCaptureBuilder] thì không có dữ liệu AF/AE → đừng chặn tự chụp. */
-    @Volatile
-    private var focusTrackingAttached = false
-
     /** Đọc `CONTROL_AF_STATE` / `CONTROL_AE_STATE` của từng frame và đẩy vào [focusGate]. */
     private val sessionCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureCompleted(
@@ -200,7 +196,7 @@ class AiCameraAssistant(
             tracker = lockTracker,
             orientation = deviceOrientation,
             zoomProvider = { camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f },
-            focusReady = { !focusTrackingAttached || focusGate.isReady() },
+            focusReady = focusGate::isReady,
             onUi = ::render,
             onCaptureRequested = { capturePhoto() },
             onFinished = { listener?.onAutoCaptureChanged(false) },
@@ -261,17 +257,15 @@ class AiCameraAssistant(
     }
 
     /**
-     * Builder `ImageCapture` đã gắn callback đọc AF/AE.
+     * Builder `ImageCapture` đã gắn callback đọc AF/AE — host **phải** dựng use case từ builder này
+     * (`imageCapture = assistant.imageCaptureBuilder().build()`) thay vì `ImageCapture.Builder()`.
      *
-     * Host nên dùng hàm này thay cho `ImageCapture.Builder()`:
-     * `imageCapture = assistant.imageCaptureBuilder().build()`.
-     * Không dùng cũng không sao — khi đó [focusTrackingAttached] vẫn false và pipeline tự chụp
-     * như trước, chỉ mất điều kiện chờ nét/phơi sáng.
+     * Builder trơn thì [focusGate] không bao giờ nhận kết quả và pipeline sẽ không tự chụp, vì
+     * `focusReady` chỉ đúng khi AF/AE đã hội tụ.
      */
     fun imageCaptureBuilder(): ImageCapture.Builder {
         val builder = ImageCapture.Builder()
         Camera2Interop.Extender(builder).setSessionCaptureCallback(sessionCaptureCallback)
-        focusTrackingAttached = true
         return builder
     }
 
