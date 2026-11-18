@@ -38,7 +38,7 @@ Nếu máy Windows của bạn (`D:\AICameraComposer`) đang khác repo, hãy so
 | `GalleryActivity.kt` | xin quyền đọc (API 26-28), đọc MediaStore + thư mục app, nạp lại ở `onResume`, thumbnail/decode có lấy mẫu, trạng thái rỗng |
 | `res/layout/activity_gallery.xml` | thêm `TextView @+id/empty_state` |
 | `res/values/strings.xml` | thêm `gallery_empty` |
-| `app/build.gradle.kts` | `abiFilters = arm64-v8a + x86_64` (đã có trong repo) — số đo mới ở mục 8 |
+| `app/build.gradle.kts` | `splits` ABI = arm64-v8a + x86_64 (đã có trong repo) — số đo mới ở mục 8 |
 
 ---
 
@@ -56,7 +56,7 @@ git apply docs/merge/ai-module.patch
 
 Sau khi áp: `git status --short` thấy 20 file sửa + `util/PhotoStore.kt` + `app/src/test/`,
 rồi `./gradlew :app:testDebugUnitTest :app:assembleDebug` phải xanh. Patch đã gồm
-`app/build.gradle.kts` (`abiFilters`, `noCompress`, `tasks-vision:1.2.3`, ML Kit, JUnit/Robolectric)
+`app/build.gradle.kts` (`splits` ABI, `noCompress`, `tasks-vision:1.2.3`, ML Kit, JUnit/Robolectric)
 và 5 file test, nên mục 2.1 chỉ còn để tham chiếu từng dòng.
 
 ## 1. Bảng file/thư mục: chép mới, ghi đè, hay giữ nguyên
@@ -94,7 +94,7 @@ Chạy tại thư mục workspace này. Đích giả định: `D:\AICameraCompos
 | `MainActivity.kt` | **7 mốc** (mục 3), không viết lại cả file |
 | `res/layout/activity_gallery.xml` | thêm `TextView @+id/empty_state` (mục 6.3), giữ `GridView`/`ImageView`/`Button` cũ |
 | `res/values/strings.xml` | thêm 1 dòng `gallery_empty` (mục 6.3) — **không** ghi đè cả file |
-| `app/build.gradle.kts` | thêm `noCompress`, `abiFilters`, 2 dependency (mục 2) |
+| `app/build.gradle.kts` | thêm `noCompress`, `splits` ABI, 2 dependency (mục 2) |
 | `AndroidManifest.xml` | đã có `GalleryActivity` + 3 quyền; chỉ kiểm tra lại (mục 6.2) |
 
 ### 1.3 Giữ nguyên, **không** chép từ workspace
@@ -142,16 +142,18 @@ Copy-Item "$src\res\values\ai_strings.xml","$src\res\values\ai_colors.xml" "$dst
 ```diff
  android {
      ...
-     compileSdk = 34
+     compileSdk = 36
 
-     defaultConfig {
-         ...
-+        // MediaPipe/ML Kit phát hành .so cho 4 ABI (~73 MB thô trong APK).
-+        // Giữ arm64-v8a (máy thật) + x86_64 (emulator), bỏ x86 + armeabi-v7a.
-+        ndk {
-+            abiFilters += listOf("arm64-v8a", "x86_64")
++    // MediaPipe/ML Kit phát hành .so cho 4 ABI (~73 MB thô trong APK).
++    // Chia APK theo ABI để máy thật (arm64-v8a) không mang theo native x86_64 của tasks-core.
++    splits {
++        abi {
++            isEnable = true
++            reset()
++            include("arm64-v8a", "x86_64")
++            isUniversalApk = false
 +        }
-     }
++    }
 
 +    androidResources {
 +        // MediaPipe đọc thẳng .tflite/.task từ assets -> phải để nguyên, không nén.

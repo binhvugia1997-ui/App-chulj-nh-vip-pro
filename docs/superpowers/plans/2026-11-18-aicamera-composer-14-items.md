@@ -430,7 +430,7 @@ git commit -m "feat: support the front camera with mirrored overlays"
 - Consumes: AGP 8.5.2, Gradle 8.7, Kotlin 1.9.24, `compileSdk = 34`, `targetSdk = 34`.
 - Produces: `compileSdk = 36`, `targetSdk = 36`, AGP 8.9.1, Gradle 8.11.1, Kotlin 2.0.21.
 
-- [ ] **Step 1: Cài SDK 36 và nâng tooling**
+- [x] **Step 1: Cài SDK 36 và nâng tooling**
 
 Run:
 ```bash
@@ -438,12 +438,12 @@ $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-
 ```
 Sửa `gradle-wrapper.properties` → `gradle-8.11.1-bin.zip`; `build.gradle.kts` → AGP `8.9.1`, Kotlin `2.0.21`; `app/build.gradle.kts` → `compileSdk = 36`, `targetSdk = 36`.
 
-- [ ] **Step 2: Build để lộ lỗi biên dịch**
+- [x] **Step 2: Build để lộ lỗi biên dịch**
 
 Run: `./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon`
 Expected: `BUILD SUCCESSFUL`. Nếu Kotlin 2.0 báo `kotlinOptions` deprecated thì đổi sang `compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }` trong `kotlin { }`.
 
-- [ ] **Step 3: Áp edge-to-edge cho hai activity**
+- [x] **Step 3: Áp edge-to-edge cho hai activity**
 
 Thêm vào `onCreate` của `MainActivity` và `GalleryActivity`:
 ```kotlin
@@ -451,16 +451,16 @@ WindowCompat.setDecorFitsSystemWindows(window, false)
 ```
 và `ViewCompat.setOnApplyWindowInsetsListener` trên root view: áp `insets.getInsets(WindowInsetsCompat.Type.systemBars())` thành padding. Root của `activity_main.xml` lấy bằng `findViewById<View>(android.R.id.content).getChildAt(0)` nếu layout không có id riêng.
 
-- [ ] **Step 4: Kiểm manifest đầu ra**
+- [x] **Step 4: Kiểm manifest đầu ra**
 
 Run: `$ANDROID_HOME/build-tools/36.0.0/aapt dump badging app/build/outputs/apk/debug/app-debug.apk | grep -E "sdkVersion|targetSdkVersion"`
 Expected: `targetSdkVersion:'36'`, `sdkVersion:'26'`.
 
-- [ ] **Step 5: Cập nhật CI và README**
+- [x] **Step 5: Cập nhật CI và README**
 
 Trong workflow: thêm bước `run: sdkmanager "platforms;android-36" "build-tools;36.0.0"` sau `setup-android`. Trong `README.md`: đổi yêu cầu `platforms;android-34` → `android-36`, `build-tools;34.0.0` → `36.0.0`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add gradle/wrapper/gradle-wrapper.properties build.gradle.kts app/build.gradle.kts app/src/main/java/com/gia/aicomposer/MainActivity.kt app/src/main/java/com/gia/aicomposer/GalleryActivity.kt README.md .github/workflows/android.yml

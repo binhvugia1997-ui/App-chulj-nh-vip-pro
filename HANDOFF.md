@@ -76,6 +76,11 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
     `onStart` (hoặc `onCameraOpened`) chạy tiếp ở bước "chờ ổn định", không reset về `WAITING`.
 
 ## Còn dở
+- Plan mới cho mục 1 follow-up: `docs/superpowers/plans/2026-11-18-subject-detection-model.md`
+  (SubjectPicker + SubjectSmoother + SubjectDetector EfficientDet, 4 task) — **mới viết plan, chưa thực thi**.
+- 9 ý tưởng follow-up còn lại (thiếu sáng/HDR, video, preset, release, UI test, pin, thiết bị, i18n, cloud)
+  chưa có plan riêng.
+- `docs/superpowers/plans/2026-11-18-aicamera-composer-14-items.md` đang có thay đổi chưa commit (tick Task 8).
 - Chưa chạy trên emulator/điện thoại thật (VM cloud không có emulator/KVM) — chưa xác nhận được
   hành vi watchdog/khoảng dự đoán/pause-resume bằng runtime thật.
 - Chưa đối chiếu được với `D:\AICameraComposer`: diff trong `INTEGRATION.md` dùng mốc, chưa phải diff
@@ -101,7 +106,9 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
 - `INTEGRATION.md` — hướng dẫn ghép; `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk` / `app-x86_64-debug.apk` — APK demo (ABI splits).
 
 ## Bước tiếp theo
-1. Làm theo `INTEGRATION.md` mục 1 → 5 trên máy Windows.
+1. Chọn cách thực thi plan subject-detection (subagent-driven hoặc native), rồi làm Task 1 → 3;
+   Task 4 cần máy thật.
+2. Làm theo `INTEGRATION.md` mục 1 → 5 trên máy Windows.
 2. Build + test emulator (UI/overlay/tự chụp nhờ fallback 600 ms).
 3. Test máy thật: rung/ổn định, khóa khung khi xoay, tự chụp khi căn chuẩn.
 4. Nếu có lỗi build khi ghép: sửa trong workspace rồi build lại `./gradlew :app:assembleDebug`.
