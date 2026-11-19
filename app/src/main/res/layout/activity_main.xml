@@ -12,7 +12,8 @@
         android:layout_height="match_parent"
         app:scaleType="fitCenter" />
 
-    <com.gia.aicomposer.CompositionOverlayView
+    <!-- Một overlay duy nhất cho cả lưới/chấm vàng-trắng và khung 3:4/hình que. -->
+    <com.gia.aicomposer.overlay.CameraOverlayView
         android:id="@+id/overlay_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

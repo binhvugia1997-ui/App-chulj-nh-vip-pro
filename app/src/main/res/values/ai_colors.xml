@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Màu cho overlay của tính năng AI (PoseOverlayView).
+  Màu cho overlay của tính năng AI (CameraOverlayView).
   Chép vào app/src/main/res/values/ của app thật; nếu đã có trùng tên thì xoá dòng ở đây.
 -->
 <resources>

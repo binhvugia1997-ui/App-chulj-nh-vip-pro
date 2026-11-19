@@ -8,7 +8,6 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
 ## Cách giao code hiện tại (đã đổi)
 - Toàn bộ tính năng mới gói trong `com.gia.aicomposer.integration`:
   - `AiCameraAssistant.kt` — điểm nối duy nhất (overlay, cảnh, khung 3:4, cảm biến, pipeline 9 bước, chụp).
-  - `AiOverlayHost.kt` — tự bọc `PreviewView` trong `FrameLayout` nếu layout chưa có.
   - `AiSettingsDialog.kt` — hộp thoại cài đặt dựng bằng code (không cần viewBinding/theme Material).
 - `MainActivity.kt` trong workspace giờ chỉ là **bản mẫu nối dây tối thiểu** (~190 dòng), không còn chứa logic AI.
 - Tài liệu ghép: `INTEGRATION.md` — danh sách file chép, diff gradle/manifest, 7 bước diff cho MainActivity,
@@ -123,7 +122,7 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
   `pose_chip` dưới câu hướng dẫn, nút chụp tròn vàng 68dp trong vòng ring, thư viện + “Gợi ý dáng” hai bên.
   Scrim trên/dưới là View không clickable nên chạm đặt điểm mục tiêu vẫn xuống `overlay_view`.
 - `MainActivity` chỉ thêm nối dây cho view mới (không đổi id, không đổi luồng chụp/ngưỡng): `toggleCamera()`
-  (camera trước/sau, `CompositionOverlayView.mirrorHorizontally` lật điểm chủ thể), `openSettings()`
+  (camera trước/sau, `CameraOverlayView.mirrorHorizontally` lật điểm chủ thể), `openSettings()`
   (`AiSettingsDialog` kiểu Material), `suggestPose()` (thư viện dáng offline `PoseScorer` + `SceneState.empty()`
   → tên dáng + điểm trong chip), `OnboardingDialog.showIfFirstRun()`.
 - `AiSettingsDialog` viết lại: `dialog_ai_settings.xml` với `MaterialSwitch` có nhãn + mô tả, `Slider` 0–3 s
@@ -138,7 +137,7 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
   `ic_pose`, `ic_camera`, `ic_arrow_back`, `ic_share`, `ic_delete`, `ic_empty_gallery`), mọi nút icon có
   `contentDescription`.
 - **Đã nối** `AiCameraAssistant` vào `MainActivity` (2026-11-19): nút “Gợi ý dáng” gọi `assistant.suggestPose()`
-  → chấm điểm theo `SceneAnalyzer` + vẽ hình que/khung 3:4 của `PoseOverlayView`; `SubjectTracker` chạy trên
+  → chấm điểm theo `SceneAnalyzer` + vẽ hình que/khung 3:4 của `CameraOverlayView`; `SubjectTracker` chạy trên
   chính `assistant.imageAnalysis` qua `legacyFrameTap` (một use case phân tích duy nhất, RGBA_8888 vẫn đọc được).
   Ngưỡng giữ nguyên 0.08 / 600 ms / 30°×0.55 / 5–25 dp / 15 dp-1 s; pipeline tự căn khung của assistant **không**
   bật (`onCameraOpened()` không gọi) nên màn chụp vẫn tự chụp theo heuristic cũ, không có hai bộ tự chụp tranh nhau.
@@ -186,3 +185,23 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
     `camera_back`), 2 color (`black`, `scrim`), drawable `ic_app_icon` (bản trùng `app_icon`).
   - Kiểm: `./gradlew :app:testDebugUnitTest :app:assembleDebug` → BUILD SUCCESSFUL, 57 test pass, 0 fail.
     Không xem được màn hình thật (VM không có emulator) nên phần nhìn vẫn cần Gia kiểm trên máy.
+- **Gộp hai overlay thành một lớp vẽ** (2026-11-19, sau khi nối `AiCameraAssistant`):
+  - `CompositionOverlayView.kt` (154 dòng) + `overlay/PoseOverlayView.kt` (264 dòng) → **một**
+    `overlay/CameraOverlayView.kt`; xoá `integration/AiOverlayHost.kt` (46 dòng, bọc `PreviewView` bằng
+    `FrameLayout` lúc runtime). Ròng: −3 file, overlay còn ~1 `onDraw` thay vì 2 view mỗi frame.
+  - Lý do gộp không chỉ là gọn: hai view tính `contentRect` theo **hai** aspect khác nhau
+    (`4f/3f` cảm biến vs `0.75f` hiển thị) → trên máy 1080×2340 chấm vàng ở hệ 1080×810 còn khung 3:4 ở
+    hệ 1080×1440, tức hai lớp không cùng toạ độ.
+  - Một `previewAspect` (aspect hiển thị) cho cả view và pipeline qua `AiCameraAssistant.setPreviewAspect()`;
+    trước đây `pipeline.setViewport()` luôn nhận `0.75f` kể cả khi chọn 16:9.
+  - `showFrame` thành thuộc tính suy ra `showPose && pose != null` → bỏ 2 nguồn ghi (`MainActivity.suggestPose()`,
+    `AiCameraAssistant.render()`) và bỏ 9 setter `invalidate()` của `PoseOverlayView` (dùng biến thường +
+    `invalidate()` một lần ở cuối `render()` / `suggestPose()` / `applyUserSettings()`).
+  - Bỏ phần trùng: `previewRect()`/`toViewX`/`toViewY` (dùng `PreviewGeometry`), 2 bộ `Paint` rời (gộp còn
+    1 `ringPaint` cho chấm mục tiêu + vòng tâm), 3 `Color.parseColor` → `ContextCompat.getColor`
+    (`accent` #FFD600, `guide_accent` #7C4DFF, `guide_accent_aligned` #3DDC84).
+  - Giữ nguyên ngưỡng: 0.08 / 600 ms / 2500 ms cooldown, 30°×0.55, snap 5–25 dp, 15 dp-1 s,
+    `FRAME_HEIGHT_FRACTION 0.76` / `FRAME_NORM_ASPECT 1f`, `HEAD_ROOM 0.06`; giữ id `overlay_view` và
+    toàn bộ cách nối dây. Giờ chấm vàng cũng lật ngang khi selfie (trước chỉ khung 3:4 lật).
+  - Kiểm: `./gradlew :app:testDebugUnitTest :app:assembleDebug` → BUILD SUCCESSFUL (3m, build sạch),
+    `AgreedThresholdsTest` + `MirrorGeometryTest` xanh. Chưa xem được overlay bằng mắt (VM không có emulator).

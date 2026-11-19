@@ -3,8 +3,8 @@
 Tài liệu này là hướng dẫn merge **từng file/thư mục** trong workspace này vào project thật ở
 `https://github.com/binhvugia1997-ui/App-chulj-nh-vip-pro` (nhánh `main`), kèm các bước thêm
 dependency/assets và **chỉ rõ chỗ phải sửa** trong `MainActivity.kt`, `SubjectTracker.kt`,
-`CompositionOverlayView.kt` để hành vi cũ (chấm vàng/chấm trắng, tự chụp heuristic, thư viện ảnh)
-không đổi.
+`overlay/CameraOverlayView.kt` (gộp hai overlay cũ) để hành vi cũ (chấm vàng/chấm trắng, tự chụp
+heuristic, thư viện ảnh) không đổi.
 
 ---
 
@@ -68,13 +68,12 @@ Chạy tại thư mục workspace này. Đích giả định: `D:\AICameraCompos
 | Nguồn | Đích | Ghi chú |
 |---|---|---|
 | `app/src/main/java/com/gia/aicomposer/integration/AiCameraAssistant.kt` | `.../aicomposer/integration/` | điểm nối duy nhất |
-| `app/src/main/java/com/gia/aicomposer/integration/AiOverlayHost.kt` | nt | tự bọc `PreviewView` trong `FrameLayout` |
 | `app/src/main/java/com/gia/aicomposer/integration/AiSettingsDialog.kt` | nt | dialog dựng bằng code, không cần viewBinding |
 | `app/src/main/java/com/gia/aicomposer/pose/` (3 file) | `.../aicomposer/pose/` | `PoseTemplate`, `PoseLibrary` (30 dáng), `PoseScorer` |
 | `app/src/main/java/com/gia/aicomposer/model/SceneState.kt` | `.../aicomposer/model/` | |
 | `app/src/main/java/com/gia/aicomposer/vision/` (5 file) | `.../aicomposer/vision/` | `SceneAnalyzer`, `SceneBuilder`, `FramingAnalyzer`, `FreeRegionFinder`, `SaliencyFinder` |
 | `app/src/main/java/com/gia/aicomposer/pipeline/` (4 file) | `.../aicomposer/pipeline/` | `StabilityMonitor`, `DeviceOrientation`, `FrameLockTracker`, `CapturePipeline` |
-| `app/src/main/java/com/gia/aicomposer/overlay/PoseOverlayView.kt` | `.../aicomposer/overlay/` | overlay hình que + khung 3:4 + vòng tâm |
+| `app/src/main/java/com/gia/aicomposer/overlay/CameraOverlayView.kt` | `.../aicomposer/overlay/` | overlay duy nhất: lưới + chấm vàng/trắng + khung 3:4 + hình que (thay `CompositionOverlayView` cũ) |
 | `app/src/main/java/com/gia/aicomposer/settings/AppSettings.kt` | `.../aicomposer/settings/` | SharedPreferences |
 | `app/src/main/java/com/gia/aicomposer/util/PreviewGeometry.kt` | `.../aicomposer/util/` | |
 | `app/src/main/java/com/gia/aicomposer/util/ImageConversions.kt` | nt | RGBA → Bitmap |
@@ -99,7 +98,8 @@ Chạy tại thư mục workspace này. Đích giả định: `D:\AICameraCompos
 
 ### 1.3 Giữ nguyên, **không** chép từ workspace
 
-- `CompositionOverlayView.kt` và `res/layout/activity_main.xml` — overlay cũ vẫn dùng (mục 5).
+- `res/layout/activity_main.xml` — chỉ đổi class `CompositionOverlayView` → `overlay.CameraOverlayView`, giữ nguyên id `overlay_view` (mục 5). File `CompositionOverlayView.kt` xoá.
+- `overlay/CameraOverlayView.kt` (mới) **thay** `CompositionOverlayView.kt` + `overlay/PoseOverlayView.kt` + `integration/AiOverlayHost.kt`.
 - `MainActivity.kt` trong workspace — chỉ là app v0.1 tham chiếu; nguồn sửa là file của bạn.
 - `res/values/themes.xml`, `colors.xml`, `drawable/*` — cấu hình demo.
 - `app/build.gradle.kts`, `AndroidManifest.xml` — không chép đè, chỉ áp diff ở mục 2/6.2.
@@ -267,18 +267,17 @@ chụp 1:1, nút Thư viện) và chỉ **thêm** phần nối dây AI.
 ```diff
          overlay.onTargetMoved = { withinSinceMs = 0L }
 +
-+        // Assistant tự bọc PreviewView trong FrameLayout và thêm overlay hình que lên trên.
-+        // Không truyền container: layout activity_main.xml là FrameLayout, CompositionOverlayView
-+        // vẫn nằm phía trên nên chấm trắng/vàng cũ không bị che.
-+        aiAssistant = AiCameraAssistant(this, previewView)
++        // overlay là view duy nhất trong activity_main.xml (id overlay_view); assistant không
++        // tự bọc PreviewView bằng FrameLayout nữa.
++        aiAssistant = AiCameraAssistant(this, previewView, overlay)
 +        aiAssistant.listener = this
 +
 +        // CameraX chỉ cho một ImageAnalysis -> SubjectTracker cũ chạy trên analyzer của assistant.
 +        aiAssistant.legacyFrameTap = ::analyzeFrameForSubject
 ```
 
-Không cần sửa `activity_main.xml`. Nếu sau này muốn kiểm soát thứ tự vẽ, bọc `PreviewView` trong
-`FrameLayout @+id/preview_container` và truyền container đó làm tham số thứ 3.
+Trong `activity_main.xml` chỉ đổi đúng một chỗ: `CompositionOverlayView` →
+`com.gia.aicomposer.overlay.CameraOverlayView`, giữ nguyên `@+id/overlay_view`.
 
 ### 3.4 `bindCameraUseCases()` — dùng chung `ImageCapture` + `ImageAnalysis` của assistant
 
@@ -299,7 +298,8 @@ Không cần sửa `activity_main.xml`. Nếu sau này muốn kiểm soát thứ
 +        // Assistant đã cấu hình 640x480, RGBA_8888, KEEP_ONLY_LATEST và analyzer riêng.
 +        val analysis = aiAssistant.imageAnalysis
 
-         overlay.previewAspectRatio = if (aspect == AspectRatio.RATIO_16_9) 16f / 9f else 4f / 3f
++        // Một aspect duy nhất cho cả overlay và pipeline (trước đây pipeline luôn nhận 0.75f).
++        aiAssistant.setPreviewAspect(if (aspect == AspectRatio.RATIO_16_9) 9f / 16f else 3f / 4f)
 
          provider.unbindAll()
          try {
@@ -446,9 +446,8 @@ private fun switchCamera() {
 
 - Gọi `setFrontCameraActive` **mỗi lần** bind camera, kể cả lần đầu, để cờ không lệch với
   `CameraSelector` thực tế.
-- `PoseOverlayView` lật tâm khung 3:4 (và hình que vẽ theo khung) quanh trục giữa vùng preview.
-- `CompositionOverlayView` (chấm trắng/vàng của app cũ) **không** lật: nó chỉ dùng camera sau, và
-  thêm cờ mirror vào đó là nhánh không bao giờ chạy.
+- `CameraOverlayView` lật **mọi** điểm vẽ (tâm khung 3:4, hình que, chấm vàng) quanh trục giữa
+  vùng preview. Trước đây chỉ `PoseOverlayView` lật nên chấm vàng lệch khi selfie.
 - `SubjectTracker` không cần sửa: nó đọc khung phân tích (chưa mirror) và trả toạ độ chuẩn hoá theo
   không gian camera.
 - Ảnh chụp bằng camera trước chỉ bị lật nếu bạn tự lật khi lưu; CameraX trả ảnh đúng chiều như cảm
@@ -498,27 +497,23 @@ qua mục này — nhưng khi đó không được bind 2 `ImageAnalysis`; cách
 
 ---
 
-## 5. `CompositionOverlayView.kt` — không phải sửa
+## 5. `overlay/CameraOverlayView.kt` — overlay duy nhất
 
-- Overlay cũ (lưới 1/3, chấm trắng, chấm vàng, chạm đổi điểm mục tiêu) **giữ nguyên**. Nó là view
-  khai báo sau `PreviewView` trong `activity_main.xml`, còn `PoseOverlayView` của assistant nằm trong
-  `FrameLayout` bọc quanh `PreviewView` → vẽ **dưới** overlay cũ, cả hai cùng hiện.
-- Không xung đột chạm: `PoseOverlayView` không xử lý touch; `CompositionOverlayView.onTouchEvent`
-  vẫn nhận `ACTION_DOWN` như cũ.
-- `overlay.previewAspectRatio` vẫn được set trong `bindCameraUseCases()` như cũ — không đổi.
-- Tuỳ chọn (không bắt buộc): ẩn overlay cũ khi đang hiện hình que để màn hình gọn hơn.
-
-  ```kotlin
-  // sau khi bật/tắt gợi ý dáng
-  overlay.visibility = if (aiAssistant.settings.poseSuggestionsEnabled) View.INVISIBLE else View.VISIBLE
-  ```
-
-  Lưu ý: ẩn view thì mất luôn khả năng chạm để dời chấm trắng, và tự chụp heuristic cũ không còn
-  chạy — chỉ làm nếu bạn chấp nhận.
-- **Hai overlay dùng hai hệ toạ độ khác nhau**: overlay cũ vẽ theo tâm màn hình, overlay AI vẽ khung
-  3:4 trong vùng nội dung preview 4:3 (`previewAspect = 0.75f` mặc định của assistant). Nếu app bạn
-  đổi sang 16:9, khung 3:4 của AI sẽ lệch — hoặc giữ 4:3 khi bật AI, hoặc tạo lại assistant với
-  `previewAspect` tương ứng (tham số thứ 4 của constructor).
+- Trước đây là **hai** view chồng nhau: `CompositionOverlayView` (lưới 1/3, chấm trắng, chấm vàng,
+  chạm đổi điểm mục tiêu) và `PoseOverlayView` (khung 3:4, hình que, vòng tâm). Hai view tính vùng
+  preview theo hai quy ước aspect khác nhau (`4/3` của cảm biến vs `0.75` của nội dung hiển thị),
+  nên khung 3:4 và chấm vàng lệch nhau, và mỗi frame bị `invalidate()` hai lần.
+- Giờ chỉ còn một view, khai báo đúng chỗ cũ trong `activity_main.xml` với id `overlay_view` giữ
+  nguyên. Một `onDraw` vẽ dưới → trên: lưới → khung 3:4 → hình que → vòng tâm + cung giữ → đường
+  nối + chấm vàng → chấm trắng mục tiêu.
+- Một `previewAspect` duy nhất (aspect hiển thị, rộng/cao) dùng cho cả view và pipeline — trước đây
+  `pipeline.setViewport()` luôn nhận `0.75f` kể cả ở 16:9. Thay hai dòng cũ bằng
+  `aiAssistant.setPreviewAspect(aspect)` trong `bindCameraUseCases()`.
+- `showFrame` là thuộc tính suy ra (`showPose && pose != null`) nên không cần gán ở
+  `MainActivity.suggestPose()` / `openSettings()` nữa — khung 3:4 luôn đi theo hình que.
+- Xoá `CompositionOverlayView.kt`, `overlay/PoseOverlayView.kt`, `integration/AiOverlayHost.kt`.
+- Chạm đổi điểm mục tiêu, `distanceToTarget()` và ngưỡng `LOCK_THRESHOLD` 0.08 / `LOCK_HOLD_MS`
+  600 ms không đổi.
 
 ---
 

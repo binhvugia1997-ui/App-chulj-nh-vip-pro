@@ -37,6 +37,7 @@ import com.gia.aicomposer.integration.AiCameraAssistant
 import com.gia.aicomposer.integration.AiSettingsDialog
 import com.gia.aicomposer.integration.CaptureReviewDialog
 import com.gia.aicomposer.integration.OnboardingDialog
+import com.gia.aicomposer.overlay.CameraOverlayView
 import com.gia.aicomposer.settings.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
@@ -67,7 +68,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var previewView: PreviewView
-    private lateinit var overlay: CompositionOverlayView
+    private lateinit var overlay: CameraOverlayView
     private lateinit var statusText: TextView
     private lateinit var shutterButton: View
     private lateinit var galleryButton: View
@@ -129,11 +130,11 @@ class MainActivity : AppCompatActivity() {
         poseChip = findViewById(R.id.pose_chip)
         fileExecutor = Executors.newSingleThreadExecutor()
 
-        // Điểm nối AI: assistant tự tạo overlay (hình que + khung 3:4) phủ trên preview và sở hữu
-        // ImageAnalysis duy nhất của camera. SubjectTracker chạy trên chính use case đó qua
-        // legacyFrameTap, nên chấm vàng + tự chụp 0.08 / 600 ms giữ nguyên.
+        // Điểm nối AI: assistant dùng overlay duy nhất khai báo trong layout và sở hữu ImageAnalysis
+        // của camera. SubjectTracker chạy trên chính use case đó qua legacyFrameTap, nên chấm vàng
+        // + tự chụp 0.08 / 600 ms giữ nguyên.
         // Pipeline tự căn khung của assistant không bật: màn chụp vẫn tự chụp theo heuristic cũ.
-        assistant = AiCameraAssistant(this, previewView)
+        assistant = AiCameraAssistant(this, previewView, overlay)
         assistant.legacyFrameTap = ::analyzeSubject
 
         overlay.onTargetMoved = { withinSinceMs = 0L }
@@ -214,18 +215,15 @@ class MainActivity : AppCompatActivity() {
             suggestion.score,
         )
         poseChip.visibility = View.VISIBLE
-        // Khung 3:4 chỉ hiện khi có hình que, để lúc chưa gợi ý preview vẫn sạch.
-        assistant.overlay.showFrame = true
     }
 
     /** Cài đặt kiểu Material: gợi ý dáng, tự chụp, độ trễ chụp. */
     private fun openSettings() {
         AiSettingsDialog.show(this, appSettings, autoCaptureEnabled) { autoCapture ->
             applyAutoCapture(autoCapture)
-            // Tắt gợi ý dáng trong Cài đặt thì giấu luôn hình que + khung 3:4.
-            assistant.overlay.showPose = appSettings.poseSuggestionsEnabled &&
+            // Tắt gợi ý dáng trong Cài đặt thì giấu luôn hình que + khung 3:4 (khung đi theo hình que).
+            overlay.showPose = appSettings.poseSuggestionsEnabled &&
                 assistant.currentSuggestion != null
-            if (!appSettings.poseSuggestionsEnabled) assistant.overlay.showFrame = false
         }
     }
 
@@ -282,10 +280,8 @@ class MainActivity : AppCompatActivity() {
         // legacyFrameTap) vẫn nhận từng khung như trước.
         val analysis = assistant.imageAnalysis
 
-        val previewAspect = if (aspect == AspectRatio.RATIO_16_9) 16f / 9f else 4f / 3f
-        overlay.previewAspectRatio = previewAspect
-        // Overlay AI dùng aspect hiển thị (rộng/cao) của nội dung camera để khung 3:4 khớp preview.
-        assistant.overlay.previewAspect = if (aspect == AspectRatio.RATIO_16_9) 9f / 16f else 3f / 4f
+        val previewAspect = if (aspect == AspectRatio.RATIO_16_9) 9f / 16f else 3f / 4f
+        assistant.setPreviewAspect(previewAspect)
 
         provider.unbindAll()
         try {

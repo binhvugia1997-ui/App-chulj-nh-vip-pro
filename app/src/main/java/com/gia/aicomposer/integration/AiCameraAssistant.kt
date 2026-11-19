@@ -8,8 +8,6 @@ import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import android.util.Size
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.camera.camera2.interop.Camera2Interop
@@ -26,7 +24,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import com.gia.aicomposer.R
 import com.gia.aicomposer.model.SceneState
-import com.gia.aicomposer.overlay.PoseOverlayView
+import com.gia.aicomposer.overlay.CameraOverlayView
 import com.gia.aicomposer.pipeline.CapturePipeline
 import com.gia.aicomposer.pipeline.DeviceOrientation
 import com.gia.aicomposer.pipeline.FocusGate
@@ -48,9 +46,11 @@ import java.util.concurrent.TimeUnit
 /**
  * Điểm nối duy nhất cho toàn bộ tính năng AI của app.
  *
- * Lớp này tự sở hữu: overlay (hình que + khung 3:4 + vòng tâm), nhận diện cảnh, tìm khung,
- * ổn định theo cảm biến, khóa khung theo máy và pipeline 9 bước. Activity chỉ cần:
- *   1. tạo assistant sau khi có PreviewView,
+ * Lớp này sở hữu: nhận diện cảnh, tìm khung, ổn định theo cảm biến, khóa khung theo máy và
+ * pipeline 9 bước. Overlay duy nhất ([CameraOverlayView]) do activity khai báo trong layout và
+ * truyền vào, nên thứ tự vẽ nằm ở XML chứ không bị chèn thêm FrameLayout lúc runtime.
+ * Activity chỉ cần:
+ *   1. truyền overlay + PreviewView khi tạo assistant,
  *   2. bind use case [imageAnalysis] cùng Preview/ImageCapture,
  *   3. gọi [onCameraOpened] sau khi bind xong,
  *   4. chuyển tiếp onStart/onStop/onDestroy và vài nút bấm.
@@ -60,8 +60,7 @@ import java.util.concurrent.TimeUnit
 class AiCameraAssistant(
     private val activity: ComponentActivity,
     private val previewView: PreviewView,
-    overlayContainer: ViewGroup? = null,
-    private val previewAspect: Float = DEFAULT_PREVIEW_ASPECT,
+    private val overlay: CameraOverlayView,
 ) {
 
     /** Callback cho UI của app; mọi hàm được gọi trên main thread. */
@@ -86,9 +85,6 @@ class AiCameraAssistant(
     var listener: Listener? = null
 
     val settings = AppSettings(activity)
-
-    /** Overlay dùng chung: hình que + khung 3:4 + vòng tròn tâm. */
-    val overlay: PoseOverlayView = PoseOverlayView(activity)
 
     /**
      * Use case phân tích khung hình. Bind nó cùng Preview/ImageCapture trong
@@ -171,19 +167,6 @@ class AiCameraAssistant(
     private val pipeline: CapturePipeline
 
     init {
-        val host = overlayContainer ?: AiOverlayHost.ensureContainer(previewView)
-        host.addView(
-            overlay,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            ),
-        )
-        overlay.previewAspect = previewAspect
-        overlay.frameHeightFraction = CapturePipeline.FRAME_HEIGHT_FRACTION
-        overlay.frameNormAspect = CapturePipeline.FRAME_NORM_ASPECT
-        overlay.showPose = settings.poseSuggestionsEnabled
-
         imageAnalysis = ImageAnalysis.Builder()
             .setResolutionSelector(analysisResolutionSelector())
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -213,9 +196,7 @@ class AiCameraAssistant(
             activity.runOnUiThread { pipeline.onMotion(snapshot) }
         }
 
-        overlay.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
-            pipeline.setViewport(view.width, view.height, previewAspect)
-        }
+        overlay.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> syncViewport() }
     }
 
     // ------------------------------------------------------------ vòng đời
@@ -291,6 +272,15 @@ class AiCameraAssistant(
         control.startFocusAndMetering(action)
     }
 
+    /**
+     * Một chỗ duy nhất đổi tỉ lệ preview: overlay vẽ và pipeline đo dùng chung một aspect hiển thị
+     * (rộng/cao của nội dung camera), nên không còn cảnh khung 3:4 lệch chấm vàng khi đổi 16:9.
+     */
+    fun setPreviewAspect(aspect: Float) {
+        overlay.previewAspect = aspect
+        syncViewport()
+    }
+
     /** Gọi sau `bindToLifecycle` để pipeline đọc được zoom ratio. */
     fun onCameraBound(boundCamera: Camera?) {
         camera = boundCamera
@@ -330,6 +320,7 @@ class AiCameraAssistant(
         currentSuggestion = suggestion
         overlay.pose = suggestion.pose
         overlay.showPose = true
+        overlay.invalidate()
         listener?.onPoseSuggested(suggestion, latestScene)
         Log.d(TAG, "pose=${suggestion.pose.id} score=${suggestion.score} scene=${latestScene.summary}")
         return suggestion
@@ -357,6 +348,10 @@ class AiCameraAssistant(
 
     // ------------------------------------------------------------ nội bộ
 
+    private fun syncViewport() {
+        pipeline.setViewport(overlay.width, overlay.height, overlay.previewAspect)
+    }
+
     private fun syncAutoCapture() {
         if (!cameraReady) return
         if (settings.autoCaptureEnabled) pipeline.start() else pipeline.stop()
@@ -366,6 +361,7 @@ class AiCameraAssistant(
         val poseEnabled = settings.poseSuggestionsEnabled
         overlay.pose = currentSuggestion?.pose
         overlay.showPose = poseEnabled && currentSuggestion != null
+        overlay.invalidate()
         listener?.onPoseSuggestionsToggled(poseEnabled)
 
         syncAutoCapture()
@@ -452,14 +448,12 @@ class AiCameraAssistant(
     private fun render(ui: PipelineUi) {
         latestUi = ui
         overlay.frameCenter = ui.frameCenter
-        overlay.showFrame =
-            ui.state.ordinal >= PipelineState.FINDING_REGION.ordinal &&
-                ui.state != PipelineState.ERROR
         overlay.showCenterTarget =
             ui.state == PipelineState.READY || ui.state == PipelineState.CAPTURING
         overlay.aligned =
             ui.lockedOnTarget || ui.alignmentOffsetDp <= CapturePipeline.ALIGN_TOLERANCE_DP
         overlay.holdProgress = ui.holdProgress
+        overlay.invalidate()
 
         // render() chạy mỗi tick (~33ms): chỉ đẩy chữ lên UI khi câu hướng dẫn đổi.
         val guidance = guidanceFor(ui)
@@ -505,9 +499,6 @@ class AiCameraAssistant(
 
     companion object {
         private const val TAG = "AiCameraAssistant"
-
-        /** Preview 4:3 ở chế độ dọc -> aspect hiển thị 3:4. */
-        const val DEFAULT_PREVIEW_ASPECT = 0.75f
 
         private const val SCENE_INTERVAL_MS = 700L
         private const val FRAMING_INTERVAL_MS = 280L
