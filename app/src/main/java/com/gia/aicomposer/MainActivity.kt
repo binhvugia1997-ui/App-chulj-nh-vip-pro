@@ -142,12 +142,7 @@ class MainActivity : AppCompatActivity() {
         galleryButton.setOnClickListener {
             startActivity(Intent(this, GalleryActivity::class.java))
         }
-        autoButton.setOnClickListener {
-            autoCaptureEnabled = !autoCaptureEnabled
-            withinSinceMs = 0L
-            updateAutoButton()
-            setStatus(if (autoCaptureEnabled) "Tu dong chup: BAT" else "Che do tay - cham vang la chu the")
-        }
+        autoButton.setOnClickListener { applyAutoCapture(!autoCaptureEnabled) }
         aspectButton.setOnClickListener {
             aspectMode = aspectMode.next()
             updateAspectButton()
@@ -188,9 +183,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateAutoButton() {
-        autoButton.text = if (autoCaptureEnabled) "Tu dong: BAT" else "Tu dong: TAT"
+        autoButton.text = getString(
+            if (autoCaptureEnabled) R.string.pill_auto_on else R.string.pill_auto_off,
+        )
         // Pill đổi màu vàng khi tự động đang bật (selector trong res/color/pill_tint.xml).
         autoButton.isSelected = autoCaptureEnabled
+    }
+
+    /**
+     * Một chỗ duy nhất đổi trạng thái tự chụp, dùng cho cả nút trên màn chụp và hộp thoại Cài đặt
+     * để hai nơi không hiển thị lệch nhau.
+     */
+    private fun applyAutoCapture(enabled: Boolean) {
+        autoCaptureEnabled = enabled
+        withinSinceMs = 0L
+        updateAutoButton()
+        setStatus(getString(if (enabled) R.string.status_auto_on else R.string.status_manual))
     }
 
     /**
@@ -213,16 +221,11 @@ class MainActivity : AppCompatActivity() {
     /** Cài đặt kiểu Material: gợi ý dáng, tự chụp, độ trễ chụp. */
     private fun openSettings() {
         AiSettingsDialog.show(this, appSettings, autoCaptureEnabled) { autoCapture ->
-            autoCaptureEnabled = autoCapture
-            withinSinceMs = 0L
-            updateAutoButton()
+            applyAutoCapture(autoCapture)
             // Tắt gợi ý dáng trong Cài đặt thì giấu luôn hình que + khung 3:4.
             assistant.overlay.showPose = appSettings.poseSuggestionsEnabled &&
                 assistant.currentSuggestion != null
             if (!appSettings.poseSuggestionsEnabled) assistant.overlay.showFrame = false
-            setStatus(
-                if (autoCapture) "Tu dong chup: BAT" else "Che do tay - cham vang la chu the",
-            )
         }
     }
 
@@ -241,7 +244,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateAspectButton() {
-        aspectButton.text = "Ti le ${aspectMode.label}"
+        aspectButton.text = getString(R.string.pill_aspect, aspectMode.label)
     }
 
     private fun setStatus(text: String) {
@@ -296,11 +299,9 @@ class MainActivity : AppCompatActivity() {
             val front = cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA
             assistant.setFrontCameraActive(front)
             setStatus(
-                if (front) {
-                    "Camera truoc - di chuyen may de cham vang trung cham trang"
-                } else {
-                    "Di chuyen may de cham vang trung cham trang"
-                },
+                getString(
+                    if (front) R.string.status_move_target_front else R.string.status_move_target,
+                ),
             )
         } catch (e: Exception) {
             Log.e(TAG, "bind failed", e)
@@ -354,7 +355,7 @@ class MainActivity : AppCompatActivity() {
                 overlay.locked = false
                 overlay.invalidate()
             }
-            setStatus("Di chuyen may de cham vang trung cham trang")
+            setStatus(getString(R.string.status_move_target))
         }
     }
 
@@ -389,7 +390,7 @@ class MainActivity : AppCompatActivity() {
                         capturing = false
                         Toast.makeText(
                             this@MainActivity,
-                            "Chup loi: ${e.message}",
+                            getString(R.string.capture_failed, e.message),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -415,7 +416,11 @@ class MainActivity : AppCompatActivity() {
                         overlay.locked = false
                         overlay.invalidate()
                         setStatus("Da luu anh: $name")
-                        Toast.makeText(this@MainActivity, "Da luu anh", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@MainActivity,
+                            R.string.toast_saved,
+                            Toast.LENGTH_SHORT,
+                        ).show()
                         if (review) showCaptureReview(output.savedUri)
                     }
 
@@ -423,7 +428,7 @@ class MainActivity : AppCompatActivity() {
                         capturing = false
                         Toast.makeText(
                             this@MainActivity,
-                            "Chup loi: ${e.message}",
+                            getString(R.string.capture_failed, e.message),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -481,7 +486,7 @@ class MainActivity : AppCompatActivity() {
                 overlay.locked = false
                 overlay.invalidate()
                 setStatus("Da luu anh vuong: $name")
-                Toast.makeText(this, "Da luu anh", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_saved, Toast.LENGTH_SHORT).show()
                 if (review) showCaptureReview(uri)
             }
         } catch (e: Exception) {

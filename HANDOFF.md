@@ -163,3 +163,26 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
   `01-camera.png`, `02-gallery-empty.png`, `03-gallery-grid.png`, `04-settings.png`, `05-onboarding.png`,
   `00-probe.png` (thử nghiệm icon). Máy ảo **không chạy được** trong VM này (`/dev/kvm` không có quyền),
   nên đây không phải ảnh chụp màn hình thật.
+- **Rà soát giao diện lần 2** (2026-11-19): soi lại theme Material 3 + `activity_main`/`activity_gallery` +
+  3 hộp thoại + drawable, cắt phần thừa và gộp phần lặp. Không đổi id view, không đổi chữ tiếng Việt hiển thị,
+  không đụng ngưỡng AI.
+  - Chữ dùng chung chuyển hẳn sang `ai_strings.xml`: `pill_aspect`, `pill_auto_on/off`, `status_auto_on`,
+    `status_manual`, `status_move_target(_front)`, `toast_saved`, `capture_failed`. Layout dùng `tools:text`
+    thay vì chép lại câu mà `MainActivity` sẽ đặt; `status_text` lấy `@string/pipeline_opening`.
+  - `MainActivity.applyAutoCapture()` là chỗ duy nhất đổi trạng thái tự chụp (nút trên màn chụp **và** Cài đặt);
+    trước đây logic + câu trạng thái bị chép ở 2 nơi.
+  - `settings_cancel` + `gallery_cancel` (cùng chữ “Huỷ”) gộp thành một `cancel`.
+  - `OnboardingDialog` bỏ `Dialog` tự dựng (window trong suốt + card + margin thủ công) → dùng
+    `MaterialAlertDialogBuilder` như Cài đặt / Sheet xem ảnh; `dialog_onboarding.xml` còn lại LinearLayout nội
+    dung. Icon trang trí đặt `importantForAccessibility="no"` (trước gắn nhãn “Gợi ý dáng”, sai với trang 2–3).
+  - `GalleryActivity`: hộp thoại xác nhận xoá dùng `MaterialAlertDialogBuilder` thay `android.app.AlertDialog`
+    (trước đó là dialog hệ thống, lệch tông với phần còn lại).
+  - Theme: thêm `colorSurfaceContainer*` — dialog Material 3 lấy nền từ đây, thiếu thì rơi về xám mặc định của
+    theme Dark, lệch tông xanh đen của app.
+  - Gộp style: `Widget.AICamera.IconButton` (8 nút icon khỏi lặp `background` + `tint`) và
+    `Widget.AICamera.Divider` (3 đường kẻ trong Cài đặt). Style không có parent phải ghi `parent=""`, nếu không
+    AAPT tự suy ra parent `Widget.AICamera` và báo lỗi link.
+  - Cắt resource chết: 5 string (`pose_hint_idle`, `pose_hint_none_available`, `capture_saved`, `camera_front`,
+    `camera_back`), 2 color (`black`, `scrim`), drawable `ic_app_icon` (bản trùng `app_icon`).
+  - Kiểm: `./gradlew :app:testDebugUnitTest :app:assembleDebug` → BUILD SUCCESSFUL, 57 test pass, 0 fail.
+    Không xem được màn hình thật (VM không có emulator) nên phần nhìn vẫn cần Gia kiểm trên máy.

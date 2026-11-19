@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
@@ -48,6 +49,7 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
+            <!-- Chữ do MainActivity đặt theo tỉ lệ đang chọn; tools:text chỉ để xem layout. -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/aspect_button"
                 style="@style/Widget.AICamera.PillButton"
@@ -55,8 +57,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="0.85"
                 android:contentDescription="@string/cd_aspect_ratio"
-                android:text="Ti le 4:3"
-                app:icon="@drawable/ic_aspect_ratio" />
+                app:icon="@drawable/ic_aspect_ratio"
+                tools:text="Ti le 4:3" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/auto_button"
@@ -66,30 +68,28 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1.15"
                 android:contentDescription="@string/cd_auto_capture"
-                android:text="Tu dong: BAT"
-                app:icon="@drawable/ic_auto_awesome" />
+                app:icon="@drawable/ic_auto_awesome"
+                tools:text="Tu dong: BAT" />
 
             <ImageButton
                 android:id="@+id/switch_camera_button"
+                style="@style/Widget.AICamera.IconButton"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/bg_icon_circle"
                 android:contentDescription="@string/cd_switch_camera"
                 android:padding="11dp"
-                android:src="@drawable/ic_camera_switch"
-                android:tint="@color/white" />
+                android:src="@drawable/ic_camera_switch" />
 
             <ImageButton
                 android:id="@+id/settings_button"
+                style="@style/Widget.AICamera.IconButton"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/bg_icon_circle"
                 android:contentDescription="@string/cd_settings"
                 android:padding="11dp"
-                android:src="@drawable/ic_settings"
-                android:tint="@color/white" />
+                android:src="@drawable/ic_settings" />
         </LinearLayout>
 
         <TextView
@@ -105,7 +105,7 @@
             android:paddingTop="8dp"
             android:paddingEnd="16dp"
             android:paddingBottom="8dp"
-            android:text="Dang mo camera..."
+            android:text="@string/pipeline_opening"
             android:textColor="@color/on_surface"
             android:textSize="13sp" />
 
@@ -143,14 +143,13 @@
 
             <ImageButton
                 android:id="@+id/gallery_button"
+                style="@style/Widget.AICamera.IconButton"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
                 android:layout_gravity="center"
-                android:background="@drawable/bg_icon_circle"
                 android:contentDescription="@string/cd_gallery"
                 android:padding="14dp"
-                android:src="@drawable/ic_gallery"
-                android:tint="@color/white" />
+                android:src="@drawable/ic_gallery" />
         </FrameLayout>
 
         <FrameLayout
@@ -183,9 +182,9 @@
 
             <ImageButton
                 android:id="@+id/pose_button"
+                style="@style/Widget.AICamera.IconButton"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
-                android:background="@drawable/bg_icon_circle"
                 android:contentDescription="@string/cd_pose_hint"
                 android:padding="14dp"
                 android:src="@drawable/ic_pose"

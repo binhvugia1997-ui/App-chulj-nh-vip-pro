@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Chuỗi dùng bởi package com.gia.aicomposer.integration + pipeline + overlay,
-  cộng thêm các nhãn giao diện mới (nút icon, cài đặt, onboarding).
-  Nếu app đã có string cùng tên thì xoá dòng đó ở đây (không để trùng tên giữa 2 file).
+  Chuỗi của package com.gia.aicomposer.integration + pipeline + overlay, và các nhãn giao diện
+  mới (nút icon, cài đặt, onboarding). Giữ tách khỏi strings.xml để bộ file của module AI
+  vẫn chép sang app khác được như INTEGRATION.md mô tả.
 -->
 <resources>
-    <string name="pose_hint_idle">Bấm “Gợi ý dáng” để nhận dáng chụp</string>
-    <string name="pose_hint_none_available">Chưa nhận diện được cảnh — dùng dáng mặc định</string>
     <string name="guidance_pose_disabled">Đang tắt gợi ý dáng (bật trong Cài đặt)</string>
 
     <string name="pipeline_waiting">Sẵn sàng — bấm “Tự chụp” để bắt đầu</string>
@@ -23,6 +21,17 @@
     <string name="pipeline_error">Lỗi: %s</string>
     <string name="pipeline_error_state">Có lỗi xảy ra</string>
 
+    <!-- Nhãn pill + dòng trạng thái trên màn chụp (MainActivity đặt, layout chỉ xem trước). -->
+    <string name="pill_aspect">Ti le %1$s</string>
+    <string name="pill_auto_on">Tu dong: BAT</string>
+    <string name="pill_auto_off">Tu dong: TAT</string>
+    <string name="status_auto_on">Tu dong chup: BAT</string>
+    <string name="status_manual">Che do tay - cham vang la chu the</string>
+    <string name="status_move_target">Di chuyen may de cham vang trung cham trang</string>
+    <string name="status_move_target_front">Camera truoc - di chuyen may de cham vang trung cham trang</string>
+    <string name="toast_saved">Da luu anh</string>
+    <string name="capture_failed">Chup loi: %1$s</string>
+
     <string name="settings_title">Cài đặt</string>
     <string name="settings_pose_suggestions">Bật gợi ý dáng</string>
     <string name="settings_pose_hint">Hiện hình que và gợi ý dáng khi chụp</string>
@@ -32,7 +41,8 @@
     <string name="settings_delay_hint">Thời gian giữ yên sau khi khung đã căn chuẩn</string>
     <string name="settings_delay_value">%1$.2f giây</string>
     <string name="settings_close">Đóng</string>
-    <string name="settings_cancel">Huỷ</string>
+    <!-- Dùng chung cho mọi hộp thoại xác nhận/huỷ. -->
+    <string name="cancel">Huỷ</string>
 
     <string name="suggest_result">%1$s • điểm %2$.1f</string>
 
@@ -43,13 +53,11 @@
     <string name="review_retake">Chụp lại</string>
     <string name="review_no_viewer">Không có ứng dụng xem ảnh</string>
     <string name="review_thumbnail_cd">Ảnh vừa chụp</string>
-    <string name="capture_saved">Đã lưu: %1$s</string>
 
     <string name="gallery_share">Chia sẻ</string>
     <string name="gallery_delete">Xoá</string>
     <string name="gallery_delete_confirm">Xoá ảnh này khỏi máy?</string>
     <string name="gallery_delete_failed">Không xoá được ảnh</string>
-    <string name="gallery_cancel">Huỷ</string>
 
     <!-- Nhãn cho nút icon (đọc màn hình) -->
     <string name="cd_aspect_ratio">Đổi tỉ lệ khung hình</string>
@@ -74,7 +82,4 @@
     <string name="onboarding_body_2">Chạm vào màn hình để đặt điểm mục tiêu, rồi di chuyển máy cho chấm vàng (chủ thể) vào vòng tròn.</string>
     <string name="onboarding_title_3">Tự chụp khi đã căn chuẩn</string>
     <string name="onboarding_body_3">Bật “Tự động” và giữ máy yên: khi khung trùng vòng tròn đủ lâu, app tự chụp và lưu ảnh vào Thư viện.</string>
-
-    <string name="camera_front">Camera trước</string>
-    <string name="camera_back">Camera sau</string>
 </resources>

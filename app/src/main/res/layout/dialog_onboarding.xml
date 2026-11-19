@@ -1,109 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Nội dung 3 bước onboarding; nền + bo góc do MaterialAlertDialog vẽ, không tự dựng card. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="20dp"
-    android:layout_marginTop="24dp"
-    android:layout_marginEnd="20dp"
-    android:layout_marginBottom="24dp"
-    app:cardBackgroundColor="@color/surface"
-    app:cardCornerRadius="28dp"
-    app:cardElevation="0dp"
-    app:strokeColor="@color/outline"
-    app:strokeWidth="1dp">
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="4dp">
+
+    <!-- Icon chỉ để trang trí: tiêu đề và nội dung đã nói đủ. -->
+    <ImageView
+        android:id="@+id/onboarding_icon"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_pose" />
+
+    <TextView
+        android:id="@+id/onboarding_step"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:textColor="@color/on_surface_variant"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/onboarding_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/on_surface"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/onboarding_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:lineSpacingExtra="4dp"
+        android:textColor="@color/on_surface_variant"
+        android:textSize="14sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_marginTop="20dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <ImageView
-            android:id="@+id/onboarding_icon"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:contentDescription="@string/pose_button_label"
-            android:src="@drawable/ic_pose" />
+        <View
+            android:id="@+id/onboarding_dot_1"
+            android:layout_width="18dp"
+            android:layout_height="8dp"
+            android:background="@drawable/bg_dot" />
 
-        <TextView
-            android:id="@+id/onboarding_step"
+        <View
+            android:id="@+id/onboarding_dot_2"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_dot" />
+
+        <View
+            android:id="@+id/onboarding_dot_3"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/onboarding_skip"
+            style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:textColor="@color/on_surface_variant"
-            android:textSize="12sp" />
+            android:text="@string/onboarding_skip"
+            android:textColor="@color/on_surface_variant" />
 
-        <TextView
-            android:id="@+id/onboarding_title"
-            android:layout_width="match_parent"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/onboarding_next"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@color/on_surface"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/onboarding_body"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:lineSpacingExtra="4dp"
-            android:textColor="@color/on_surface_variant"
-            android:textSize="14sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <View
-                android:id="@+id/onboarding_dot_1"
-                android:layout_width="18dp"
-                android:layout_height="8dp"
-                android:background="@drawable/bg_dot" />
-
-            <View
-                android:id="@+id/onboarding_dot_2"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_dot" />
-
-            <View
-                android:id="@+id/onboarding_dot_3"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_dot" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="end"
-            android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/onboarding_skip"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/onboarding_skip"
-                android:textColor="@color/on_surface_variant" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/onboarding_next"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:text="@string/onboarding_next"
-                android:textColor="@color/ink"
-                app:backgroundTint="@color/accent" />
-        </LinearLayout>
+            android:layout_marginStart="4dp"
+            android:text="@string/onboarding_next"
+            android:textColor="@color/ink"
+            app:backgroundTint="@color/accent" />
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+</LinearLayout>

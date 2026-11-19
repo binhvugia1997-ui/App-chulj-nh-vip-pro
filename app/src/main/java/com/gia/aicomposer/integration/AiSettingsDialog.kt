@@ -56,7 +56,7 @@ object AiSettingsDialog {
         MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.settings_title)
             .setView(content)
-            .setNegativeButton(R.string.settings_cancel, null)
+            .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.settings_close) { _, _ ->
                 settings.poseSuggestionsEnabled = switchPose.isChecked
                 settings.autoCaptureEnabled = switchAuto.isChecked

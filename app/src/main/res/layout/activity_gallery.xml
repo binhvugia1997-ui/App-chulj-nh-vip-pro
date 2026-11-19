@@ -56,16 +56,15 @@
 
     <ImageButton
         android:id="@+id/back_button"
+        style="@style/Widget.AICamera.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_gravity="top|start"
         android:layout_marginStart="10dp"
         android:layout_marginTop="10dp"
-        android:background="@drawable/bg_icon_circle"
         android:contentDescription="@string/cd_back"
         android:padding="11dp"
-        android:src="@drawable/ic_arrow_back"
-        android:tint="@color/white" />
+        android:src="@drawable/ic_arrow_back" />
 
     <LinearLayout
         android:id="@+id/photo_actions"
@@ -79,24 +78,22 @@
 
         <ImageButton
             android:id="@+id/share_button"
+            style="@style/Widget.AICamera.IconButton"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:background="@drawable/bg_icon_circle"
             android:contentDescription="@string/gallery_share"
             android:padding="11dp"
-            android:src="@drawable/ic_share"
-            android:tint="@color/white" />
+            android:src="@drawable/ic_share" />
 
         <ImageButton
             android:id="@+id/delete_button"
+            style="@style/Widget.AICamera.IconButton"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_icon_circle"
             android:contentDescription="@string/gallery_delete"
             android:padding="11dp"
-            android:src="@drawable/ic_delete"
-            android:tint="@color/white" />
+            android:src="@drawable/ic_delete" />
     </LinearLayout>
 
 </FrameLayout>

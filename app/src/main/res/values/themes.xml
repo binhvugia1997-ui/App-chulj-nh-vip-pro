@@ -16,6 +16,12 @@
         <item name="colorSurfaceVariant">@color/surface_variant</item>
         <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
         <item name="colorOutline">@color/outline</item>
+        <!-- Hộp thoại Material 3 lấy nền từ các bậc surfaceContainer; không khai báo thì dialog
+             rơi về xám mặc định của theme Dark, lệch hẳn tông xanh đen của app. -->
+        <item name="colorSurfaceContainerLowest">@color/surface</item>
+        <item name="colorSurfaceContainerLow">@color/surface</item>
+        <item name="colorSurfaceContainer">@color/surface_variant</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_variant</item>
         <item name="android:colorBackground">@android:color/black</item>
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowFullscreen">true</item>
@@ -51,5 +57,19 @@
         <item name="iconGravity">textStart</item>
         <item name="iconTint">@color/pill_icon_tint</item>
         <item name="rippleColor">@color/ripple</item>
+    </style>
+
+    <!-- Nút icon tròn dùng chung (thanh trên màn chụp, hàng dưới, thư viện); size/padding đặt tại chỗ. -->
+    <style name="Widget.AICamera.IconButton" parent="Widget.AppCompat.ImageButton">
+        <item name="android:background">@drawable/bg_icon_circle</item>
+        <item name="android:tint">@color/white</item>
+    </style>
+
+    <!-- Đường kẻ 1dp giữa các nhóm trong hộp thoại Cài đặt. -->
+    <!-- parent="" : tên có dấu chấm sẽ tự suy ra parent Widget.AICamera (không tồn tại). -->
+    <style name="Widget.AICamera.Divider" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:background">@color/divider</item>
     </style>
 </resources>

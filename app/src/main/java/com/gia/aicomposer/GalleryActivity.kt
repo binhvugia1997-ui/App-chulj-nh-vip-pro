@@ -1,7 +1,6 @@
 package com.gia.aicomposer
 
 import android.Manifest
-import android.app.AlertDialog
 import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,6 +30,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.exifinterface.media.ExifInterface
 import com.gia.aicomposer.util.PhotoShare
 import com.gia.aicomposer.util.PhotoStore
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
  * Thư viện ảnh đã chụp: lưới thumbnail các ảnh `AIC_*` (chụp tay, chế độ 1:1 và ảnh của
@@ -165,9 +165,9 @@ class GalleryActivity : AppCompatActivity() {
 
     private fun confirmDeleteCurrent() {
         val uri = currentPhoto ?: return
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setMessage(R.string.gallery_delete_confirm)
-            .setNegativeButton(R.string.gallery_cancel, null)
+            .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.gallery_delete) { _, _ ->
                 if (PhotoStore.delete(this, uri)) {
                     hideFull()

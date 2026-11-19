@@ -1,12 +1,8 @@
 package com.gia.aicomposer.integration
 
-import android.app.Dialog
 import android.content.res.ColorStateList
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -16,12 +12,14 @@ import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import com.gia.aicomposer.R
 import com.gia.aicomposer.settings.AppSettings
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
  * Onboarding lần đầu mở app: 3 màn ngắn (gợi ý dáng → căn khung → tự chụp), có nút “Bỏ qua”.
  *
- * Cờ [AppSettings.onboardingSeen] được bật khi đóng nên chỉ hiện đúng một lần; người dùng
- * xem lại nội dung này trong Cài đặt/README nếu cần.
+ * Dùng chung [MaterialAlertDialogBuilder] với [AiSettingsDialog] và [CaptureReviewDialog] nên nền,
+ * bo góc và chữ do theme Material 3 vẽ, không tự dựng `Dialog` + card riêng.
+ * Cờ [AppSettings.onboardingSeen] được bật khi đóng nên chỉ hiện đúng một lần.
  */
 object OnboardingDialog {
 
@@ -44,11 +42,8 @@ object OnboardingDialog {
     }
 
     fun show(activity: ComponentActivity, settings: AppSettings) {
-        val dialog = Dialog(activity)
         val content = LayoutInflater.from(activity)
             .inflate(R.layout.dialog_onboarding, null, false)
-        dialog.setContentView(content)
-        dialog.setCancelable(false)
 
         val icon = content.findViewById<ImageView>(R.id.onboarding_icon)
         val step = content.findViewById<TextView>(R.id.onboarding_step)
@@ -61,6 +56,11 @@ object OnboardingDialog {
         )
         val skip = content.findViewById<Button>(R.id.onboarding_skip)
         val next = content.findViewById<Button>(R.id.onboarding_next)
+
+        val dialog = MaterialAlertDialogBuilder(activity)
+            .setView(content)
+            .setCancelable(false)
+            .create()
 
         var index = 0
 
@@ -108,12 +108,8 @@ object OnboardingDialog {
         }
 
         dialog.setOnDismissListener { settings.onboardingSeen = true }
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
-        dialog.show()
         render()
+        dialog.show()
     }
 
     private fun dp(activity: ComponentActivity, value: Int): Int =
