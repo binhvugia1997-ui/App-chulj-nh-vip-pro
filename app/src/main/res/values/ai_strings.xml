@@ -35,6 +35,14 @@
     <string name="settings_cancel">Huỷ</string>
 
     <string name="suggest_result">%1$s • điểm %2$.1f</string>
+
+    <!-- Sheet xem lại ảnh vừa chụp -->
+    <string name="review_title">Ảnh vừa chụp</string>
+    <string name="review_hint">Ảnh đã lưu vào Thư viện. Xem ảnh hoặc chụp lại tấm khác.</string>
+    <string name="review_open">Xem ảnh</string>
+    <string name="review_retake">Chụp lại</string>
+    <string name="review_no_viewer">Không có ứng dụng xem ảnh</string>
+    <string name="review_thumbnail_cd">Ảnh vừa chụp</string>
     <string name="capture_saved">Đã lưu: %1$s</string>
 
     <string name="gallery_share">Chia sẻ</string>

@@ -7,12 +7,12 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
-import android.util.Size
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -22,7 +22,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -34,10 +33,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.exifinterface.media.ExifInterface
+import com.gia.aicomposer.integration.AiCameraAssistant
 import com.gia.aicomposer.integration.AiSettingsDialog
+import com.gia.aicomposer.integration.CaptureReviewDialog
 import com.gia.aicomposer.integration.OnboardingDialog
-import com.gia.aicomposer.model.SceneState
-import com.gia.aicomposer.pose.PoseScorer
 import com.gia.aicomposer.settings.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
@@ -80,13 +79,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var poseChip: TextView
 
     private val appSettings by lazy { AppSettings(this) }
-    private val poseScorer = PoseScorer()
-    private val recentPoses = ArrayDeque<String>()
     private var cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
     private var imageCapture: ImageCapture? = null
     private var cameraProvider: ProcessCameraProvider? = null
-    private lateinit var analysisExecutor: ExecutorService
+    private lateinit var assistant: AiCameraAssistant
+    private lateinit var fileExecutor: ExecutorService
     private val tracker = SubjectTracker()
 
     private var aspectMode = AspectMode.RATIO_4_3
@@ -129,11 +127,18 @@ class MainActivity : AppCompatActivity() {
         settingsButton = findViewById(R.id.settings_button)
         poseButton = findViewById(R.id.pose_button)
         poseChip = findViewById(R.id.pose_chip)
-        analysisExecutor = Executors.newSingleThreadExecutor()
+        fileExecutor = Executors.newSingleThreadExecutor()
+
+        // Điểm nối AI: assistant tự tạo overlay (hình que + khung 3:4) phủ trên preview và sở hữu
+        // ImageAnalysis duy nhất của camera. SubjectTracker chạy trên chính use case đó qua
+        // legacyFrameTap, nên chấm vàng + tự chụp 0.08 / 600 ms giữ nguyên.
+        // Pipeline tự căn khung của assistant không bật: màn chụp vẫn tự chụp theo heuristic cũ.
+        assistant = AiCameraAssistant(this, previewView)
+        assistant.legacyFrameTap = ::analyzeSubject
 
         overlay.onTargetMoved = { withinSinceMs = 0L }
 
-        shutterButton.setOnClickListener { takePhoto() }
+        shutterButton.setOnClickListener { takePhoto(review = true) }
         galleryButton.setOnClickListener {
             startActivity(Intent(this, GalleryActivity::class.java))
         }
@@ -166,9 +171,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        assistant.start()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        assistant.stop()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        analysisExecutor.shutdown()
+        assistant.release()
+        fileExecutor.shutdown()
     }
 
     private fun updateAutoButton() {
@@ -178,23 +194,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Nút “Gợi ý dáng”: chọn dáng từ thư viện dáng offline rồi hiện tên + điểm trong chip.
+     * Nút “Gợi ý dáng”: assistant chấm điểm dáng theo cảnh nhận diện được, vẽ hình que + khung 3:4
+     * lên overlay rồi trả về dáng đã chọn để hiện tên + điểm trong chip.
      * Không đụng tới ngưỡng căn khung / tự chụp của màn chụp.
      */
     private fun suggestPose() {
-        if (!appSettings.poseSuggestionsEnabled) {
-            Toast.makeText(this, R.string.guidance_pose_disabled, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val suggestion = poseScorer.suggest(SceneState.empty(), recentPoses.toList())
-        recentPoses.addLast(suggestion.pose.id)
-        while (recentPoses.size > PoseScorer.RECENT_MEMORY) recentPoses.removeFirst()
+        val suggestion = assistant.suggestPose() ?: return
         poseChip.text = getString(
             R.string.suggest_result,
             suggestion.pose.displayName,
             suggestion.score,
         )
         poseChip.visibility = View.VISIBLE
+        // Khung 3:4 chỉ hiện khi có hình que, để lúc chưa gợi ý preview vẫn sạch.
+        assistant.overlay.showFrame = true
     }
 
     /** Cài đặt kiểu Material: gợi ý dáng, tự chụp, độ trễ chụp. */
@@ -203,6 +216,10 @@ class MainActivity : AppCompatActivity() {
             autoCaptureEnabled = autoCapture
             withinSinceMs = 0L
             updateAutoButton()
+            // Tắt gợi ý dáng trong Cài đặt thì giấu luôn hình que + khung 3:4.
+            assistant.overlay.showPose = appSettings.poseSuggestionsEnabled &&
+                assistant.currentSuggestion != null
+            if (!appSettings.poseSuggestionsEnabled) assistant.overlay.showFrame = false
             setStatus(
                 if (autoCapture) "Tu dong chup: BAT" else "Che do tay - cham vang la chu the",
             )
@@ -218,6 +235,7 @@ class MainActivity : AppCompatActivity() {
             CameraSelector.DEFAULT_BACK_CAMERA
         }
         overlay.mirrorHorizontally = toFront
+        assistant.setFrontCameraActive(toFront)
         withinSinceMs = 0L
         startCamera()
     }
@@ -257,13 +275,14 @@ class MainActivity : AppCompatActivity() {
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
 
-        val analysis = ImageAnalysis.Builder()
-            .setTargetResolution(Size(640, 480))
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-        analysis.setAnalyzer(analysisExecutor, ::analyzeFrame)
+        // Một ImageAnalysis duy nhất: assistant phân tích cảnh + hình que, SubjectTracker (qua
+        // legacyFrameTap) vẫn nhận từng khung như trước.
+        val analysis = assistant.imageAnalysis
 
-        overlay.previewAspectRatio = if (aspect == AspectRatio.RATIO_16_9) 16f / 9f else 4f / 3f
+        val previewAspect = if (aspect == AspectRatio.RATIO_16_9) 16f / 9f else 4f / 3f
+        overlay.previewAspectRatio = previewAspect
+        // Overlay AI dùng aspect hiển thị (rộng/cao) của nội dung camera để khung 3:4 khớp preview.
+        assistant.overlay.previewAspect = if (aspect == AspectRatio.RATIO_16_9) 9f / 16f else 3f / 4f
 
         provider.unbindAll()
         try {
@@ -275,6 +294,7 @@ class MainActivity : AppCompatActivity() {
                 analysis
             )
             val front = cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA
+            assistant.setFrontCameraActive(front)
             setStatus(
                 if (front) {
                     "Camera truoc - di chuyen may de cham vang trung cham trang"
@@ -295,16 +315,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun analyzeFrame(image: ImageProxy) {
+    /**
+     * Analyzer cũ chạy trên ImageAnalysis của [assistant] (CameraX chỉ cho bind một use case phân
+     * tích). Assistant đóng ImageProxy sau khi hook trả về nên ở đây **không** được close.
+     */
+    private fun analyzeSubject(image: ImageProxy) {
         try {
-            val point = tracker.analyze(image)
-            if (point != null) {
-                runOnUiThread { onSubjectPoint(point.first, point.second) }
-            }
+            val point = tracker.analyze(image) ?: return
+            runOnUiThread { onSubjectPoint(point.first, point.second) }
         } catch (e: Exception) {
             Log.e(TAG, "analyze error", e)
-        } finally {
-            image.close()
         }
     }
 
@@ -338,7 +358,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun takePhoto() {
+    /**
+     * @param review true khi người dùng chủ động chụp (nút Chụp / Chụp lại) -> mở sheet xem lại ảnh
+     *   vừa chụp. Tự chụp theo heuristic thì không mở, để không ngắt mạch chụp liên tiếp.
+     */
+    private fun takePhoto(review: Boolean = false) {
         val capture = imageCapture ?: return
         if (capturing) return
         capturing = true
@@ -351,9 +375,9 @@ class MainActivity : AppCompatActivity() {
                 ContextCompat.getMainExecutor(this),
                 object : ImageCapture.OnImageSavedCallback {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                        analysisExecutor.execute {
+                        fileExecutor.execute {
                             try {
-                                saveSquareCropped(tmp, name)
+                                saveSquareCropped(tmp, name, review)
                             } finally {
                                 tmp.delete()
                                 runOnUiThread { capturing = false }
@@ -392,6 +416,7 @@ class MainActivity : AppCompatActivity() {
                         overlay.invalidate()
                         setStatus("Da luu anh: $name")
                         Toast.makeText(this@MainActivity, "Da luu anh", Toast.LENGTH_SHORT).show()
+                        if (review) showCaptureReview(output.savedUri)
                     }
 
                     override fun onError(e: ImageCaptureException) {
@@ -407,8 +432,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Sheet xem lại ảnh vừa chụp; chỉ đọc ảnh đã lưu, không đổi luồng lưu. */
+    private fun showCaptureReview(uri: Uri?) {
+        if (uri == null || isFinishing || isDestroyed) return
+        CaptureReviewDialog.show(this, uri) { takePhoto(review = true) }
+    }
+
     /** Crop tam giua thanh vuong 1:1 roi luu vao MediaStore (chi dung cho che do 1:1). */
-    private fun saveSquareCropped(tmp: File, name: String) {
+    private fun saveSquareCropped(tmp: File, name: String, review: Boolean) {
         try {
             val exif = ExifInterface(tmp.absolutePath)
             val orientation = exif.getAttributeInt(
@@ -451,6 +482,7 @@ class MainActivity : AppCompatActivity() {
                 overlay.invalidate()
                 setStatus("Da luu anh vuong: $name")
                 Toast.makeText(this, "Da luu anh", Toast.LENGTH_SHORT).show()
+                if (review) showCaptureReview(uri)
             }
         } catch (e: Exception) {
             Log.e(TAG, "square save failed", e)

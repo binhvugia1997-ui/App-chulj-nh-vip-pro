@@ -137,8 +137,16 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
 - Icon: 11 vector mới (`ic_aspect_ratio`, `ic_auto_awesome`, `ic_gallery`, `ic_settings`, `ic_camera_switch`,
   `ic_pose`, `ic_camera`, `ic_arrow_back`, `ic_share`, `ic_delete`, `ic_empty_gallery`), mọi nút icon có
   `contentDescription`.
-- **Chưa nối** `AiCameraAssistant` vào `MainActivity` (vẫn như trước): nút “Gợi ý dáng” hiện chỉ dùng thư viện
-  dáng offline, chưa vẽ hình que/khung 3:4 của module AI.
+- **Đã nối** `AiCameraAssistant` vào `MainActivity` (2026-11-19): nút “Gợi ý dáng” gọi `assistant.suggestPose()`
+  → chấm điểm theo `SceneAnalyzer` + vẽ hình que/khung 3:4 của `PoseOverlayView`; `SubjectTracker` chạy trên
+  chính `assistant.imageAnalysis` qua `legacyFrameTap` (một use case phân tích duy nhất, RGBA_8888 vẫn đọc được).
+  Ngưỡng giữ nguyên 0.08 / 600 ms / 30°×0.55 / 5–25 dp / 15 dp-1 s; pipeline tự căn khung của assistant **không**
+  bật (`onCameraOpened()` không gọi) nên màn chụp vẫn tự chụp theo heuristic cũ, không có hai bộ tự chụp tranh nhau.
+  `MainActivity` gọi `assistant.start()/stop()/release()` theo vòng đời; `setFrontCameraActive()` khi đổi camera;
+  `overlay.previewAspect` cập nhật theo tỉ lệ khung đang chọn.
+- **Sheet xem lại ảnh vừa chụp** (nửa còn lại của Task 11): `CaptureReviewDialog` + `dialog_capture_review.xml`
+  (thumbnail bo góc, nút “Xem ảnh” = `ACTION_VIEW`, “Chụp lại” = `takePhoto(review = true)`), mở sau khi **chụp tay**
+  lưu xong (cả 4:3/16:9 lẫn 1:1); tự chụp không mở sheet để không ngắt mạch chụp liên tiếp. Luồng lưu ảnh không đổi.
 - Chưa chụp được màn hình (VM không có emulator/KVM) — cần Gia xem lại bằng mắt trên máy thật.
 - **Cập nhật sau khi render thử:** các nút chỉ có icon chuyển từ `MaterialButton` + `app:icon` sang
   `ImageButton` (`bg_icon_circle.xml` / `bg_shutter.xml`, ripple tròn) — vì render layout bằng Robolectric
