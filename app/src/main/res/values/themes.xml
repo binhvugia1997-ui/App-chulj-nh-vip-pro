@@ -36,7 +36,9 @@
         <item name="android:paddingEnd">10dp</item>
         <item name="android:paddingTop">0dp</item>
         <item name="android:paddingBottom">0dp</item>
-        <item name="android:textSize">11sp</item>
+        <!-- 10sp + icon 12dp: ở màn 320dp pill “Ti le 4:3” chỉ còn ~1,5dp chỗ trống cho chữ với
+             11sp/14dp nên dễ ellipsize khi bật cỡ chữ lớn; hạ xuống để còn ~8dp dư. -->
+        <item name="android:textSize">10sp</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
         <item name="android:textColor">@color/pill_text_tint</item>
@@ -44,8 +46,8 @@
         <item name="strokeColor">@color/control_stroke</item>
         <item name="strokeWidth">1dp</item>
         <item name="cornerRadius">19dp</item>
-        <item name="iconSize">14dp</item>
-        <item name="iconPadding">4dp</item>
+        <item name="iconSize">12dp</item>
+        <item name="iconPadding">3dp</item>
         <item name="iconGravity">textStart</item>
         <item name="iconTint">@color/pill_icon_tint</item>
         <item name="rippleColor">@color/ripple</item>

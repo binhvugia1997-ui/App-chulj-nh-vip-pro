@@ -144,6 +144,12 @@ Nâng cấp app Kotlin + CameraX (`com.gia.aicomposer`) với (A) gợi ý dáng
   bật (`onCameraOpened()` không gọi) nên màn chụp vẫn tự chụp theo heuristic cũ, không có hai bộ tự chụp tranh nhau.
   `MainActivity` gọi `assistant.start()/stop()/release()` theo vòng đời; `setFrontCameraActive()` khi đổi camera;
   `overlay.previewAspect` cập nhật theo tỉ lệ khung đang chọn.
+- **Pill “Ti le 4:3” / “Tu dong: BAT” (2026-11-19):** đo bằng Robolectric `GraphicsMode.NATIVE` (glyph width
+  thật) ở 320dp/360dp: bản cũ (11sp/icon 14dp/iconPadding 4dp) pill tỉ lệ chỉ dư **1,5dp** (chữ 40,5dp trong hộp
+  chữ 42dp) → rất dễ ellipsize; đã hạ `textSize` 11sp→10sp, `iconSize` 14dp→12dp, `iconPadding` 4dp→3dp trong
+  `Widget.AICamera.PillButton` → hộp chữ 45dp vs chữ 36dp (dư 9dp), “Tu dong: BAT” 60dp trong 73dp (dư 13dp).
+  Đủ chỗ tới font scale ~1,2; từ ~1,3 chữ sẽ bị cắt (muốn hết phải đổi nhãn, không đổi được vì đã chốt chữ).
+  Render thử 320dp/360dp: chữ hiện đủ, không ellipsize (icon `MaterialButton` không vẽ được trong Robolectric).
 - **Sheet xem lại ảnh vừa chụp** (nửa còn lại của Task 11): `CaptureReviewDialog` + `dialog_capture_review.xml`
   (thumbnail bo góc, nút “Xem ảnh” = `ACTION_VIEW`, “Chụp lại” = `takePhoto(review = true)`), mở sau khi **chụp tay**
   lưu xong (cả 4:3/16:9 lẫn 1:1); tự chụp không mở sheet để không ngắt mạch chụp liên tiếp. Luồng lưu ảnh không đổi.
